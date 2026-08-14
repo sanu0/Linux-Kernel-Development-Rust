@@ -1,0 +1,32 @@
+# Kernel and driver sources must have LF endings so they work in Linux and so
+# checkpatch.pl does not complain about DOS line endings on files you later submit.
+* text=auto
+
+*.sh    text eol=lf
+*.rs    text eol=lf
+*.c     text eol=lf
+*.h     text eol=lf
+*.py    text eol=lf
+*.patch text eol=lf
+*.diff  text eol=lf
+*.dts   text eol=lf
+*.dtsi  text eol=lf
+*.yaml  text eol=lf
+*.toml  text eol=lf
+Makefile     text eol=lf
+Kconfig      text eol=lf
+Kconfig.*    text eol=lf
+*.Makefile   text eol=lf
+
+# Patches must never be modified by git; a mangled patch is a broken patch.
+*.patch -text diff=none
+*.diff  -text diff=none
+
+# Binary things git should not try to diff or convert
+*.bin  binary
+*.fw   binary
+*.rom  binary
+*.png  binary
+*.jpg  binary
+*.gif  binary
+*.pdf  binary

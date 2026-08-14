@@ -1,0 +1,131 @@
+# Environment + secrets
+.env
+.env.*
+*.key
+*.pem
+.ssh/
+.msmtprc
+.netrc
+
+# ─── Kernel trees and build artifacts ───────────────────────────
+# Never commit a kernel tree; it belongs to upstream. Clone it fresh.
+linux/
+linux-*/
+kernel-src/
+*.ko
+*.mod
+*.mod.c
+*.o
+*.o.*
+*.a
+*.s
+*.su
+*.symvers
+*.order
+.tmp_versions/
+Module.symvers
+modules.order
+vmlinux
+vmlinux.o
+vmlinux-gdb.py
+System.map
+bzImage
+Image
+Image.gz
+zImage
+arch/*/boot/
+.config
+.config.old
+.config.bak
+include/config/
+include/generated/
+scripts/basic/
+compile_commands.json
+rust-project.json
+
+# Rust / Cargo
+target/
+debug/
+release/
+**/*.rs.bk
+*.pdb
+Cargo.lock.bak
+
+# ─── Firmware, images, blobs ────────────────────────────────────
+*.bin
+*.fw
+*.rom
+*.vbios
+*.img
+*.qcow2
+*.vhdx
+*.iso
+rootfs/
+initramfs*
+initrd*
+
+# ─── Debug and crash data ──────────────────────────────────────
+*.log
+logs/
+traces/
+trace.dat
+trace.dat.*
+perf.data
+perf.data.old
+*.core
+core.*
+vmcore
+crash/
+dmesg-*.txt
+oops-*.txt
+
+# ─── Test and fuzzing output ───────────────────────────────────
+.kunit/
+workdir/
+syz-*/
+corpus/
+crashes/
+*.cov
+coverage/
+
+# ─── Python / tooling ──────────────────────────────────────────
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+env/
+*.egg-info/
+
+# ─── IDE / OS junk ─────────────────────────────────────────────
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+tags
+cscope.*
+TAGS
+
+# ─── Books and copyrighted material ────────────────────────────
+# Own the books; do not redistribute them.
+*.pdf
+*.epub
+*.mobi
+*.djvu
+
+# ─── Private working area ─────────────────────────────────────
+# Everything under _internal/ stays local, with NO exceptions — not even a
+# README. An earlier version whitelisted _internal/README.md so the convention
+# would be self-documenting in the repo; that was a mistake, because the README
+# itself had to describe what it was excluding in order to be useful, and that
+# description was the disclosure. The convention is documented in
+# CONTRIBUTING-style prose elsewhere instead; the folder is simply opaque.
+_internal/
+
+# Machine-specific setup and environment records: hostname, local paths,
+# toolchain state. Useful to keep, never to publish.
+SETUP_LOG.md
+env_day*.txt
+env/

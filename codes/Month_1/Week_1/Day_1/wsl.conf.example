@@ -1,0 +1,28 @@
+# /etc/wsl.conf  —  goes INSIDE WSL, configures THIS distro.
+#
+# Not to be confused with %USERPROFILE%\.wslconfig on Windows, which configures the WSL2 VM
+# globally. Two different files, similar names, very different scopes.
+#
+# Install:
+#   sudo cp wsl.conf.example /etc/wsl.conf     # or merge by hand if you already have one
+# Then, from PowerShell:
+#   wsl --shutdown
+#
+# Use kvm_amd instead of kvm_intel on an AMD CPU.
+
+[boot]
+# WSL's kernel ships KVM as a module and does not always load it at boot. Load it, wait for the
+# device node to actually appear (modprobe returns before it does, so chowning immediately races),
+# then fix ownership so members of the kvm group can use it without sudo.
+command = "modprobe kvm_intel && while [ ! -e /dev/kvm ]; do sleep 0.1; done && chown root:kvm /dev/kvm && chmod 660 /dev/kvm"
+
+[interop]
+# Keep Windows interop on — you want explorer.exe and clip.exe from inside WSL.
+enabled = true
+appendWindowsPath = true
+
+[automount]
+# Windows drives appear under /mnt. Never build here; see Day_1.md on the 9p performance cliff.
+enabled = true
+root = /mnt/
+options = "metadata,umask=22,fmask=11"

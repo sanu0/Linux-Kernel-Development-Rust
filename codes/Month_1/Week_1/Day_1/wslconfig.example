@@ -1,0 +1,34 @@
+# .wslconfig  —  goes on WINDOWS at %USERPROFILE%\.wslconfig
+#
+# Configures the WSL2 virtual machine globally (all distros). This is NOT /etc/wsl.conf,
+# which lives inside WSL and configures one distro.
+#
+# Install (PowerShell):
+#   notepad $env:USERPROFILE\.wslconfig
+#   # paste the [wsl2] section below, adjust the numbers, save
+#   wsl --shutdown
+#
+# Then verify inside WSL:
+#   nproc      # should match 'processors'
+#   free -h    # should match 'memory'
+#
+# Tune to your machine. Leave Windows at least 8 GB of RAM and a couple of cores, or everything
+# outside WSL will feel worse. More processors means faster 'make -j', up to your core count.
+
+# Sizing rule of thumb: give WSL about two thirds of RAM and cores, and leave the rest for
+# Windows. On a 22-core / 31 GB host, 18 processors and 20 GB works well and still leaves
+# Windows 4 cores and ~11 GB for Teams, Outlook, a browser, and the corporate security agents.
+
+[wsl2]
+memory=20GB
+processors=18
+swap=8GB
+
+# Required for QEMU/KVM inside WSL2. WSL2 is itself a VM, so running a hypervisor inside it needs
+# the outer hypervisor to expose VT-x/AMD-V. Default is true on Windows 11 x86; set it explicitly
+# so the intent is recorded. Has no effect on ARM64 Windows, where nesting is impossible.
+nestedVirtualization=true
+
+# Optional: keeps the guest clock in step after the host sleeps, which otherwise produces
+# confusing timestamps in build logs and dmesg.
+# vmIdleTimeout=60000
