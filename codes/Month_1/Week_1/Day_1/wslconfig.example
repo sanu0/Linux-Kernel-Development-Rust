@@ -29,6 +29,22 @@ swap=8GB
 # so the intent is recorded. Has no effect on ARM64 Windows, where nesting is impossible.
 nestedVirtualization=true
 
-# Optional: keeps the guest clock in step after the host sleeps, which otherwise produces
-# confusing timestamps in build logs and dmesg.
-# vmIdleTimeout=60000
+# Milliseconds the VM may sit idle before WSL shuts it down, releasing all of its memory
+# back to Windows. 60000 (60s) is already the default; stated explicitly because this is
+# the setting that makes the 'memory' ceiling above harmless when you are not using WSL.
+vmIdleTimeout=60000
+
+[experimental]
+# 'memory' above is a CEILING, not a reservation — Windows does not lose 20 GB while WSL
+# is idle. But the Linux guest spends free RAM on page cache, and a kernel build reads
+# tens of thousands of files, so the guest's footprint climbs toward that ceiling and has
+# historically not shrunk back promptly. This setting hands cached memory back to Windows
+# once the guest goes idle.
+#
+#   disabled  - never reclaim
+#   gradual   - reclaim slowly (gentler on a build you are about to resume)
+#   dropCache - reclaim immediately (current documented default)
+#
+# NOTE: this key belongs in [experimental], NOT [wsl2]. Putting it under [wsl2] produces
+# "wsl: Unknown key 'wsl2.autoMemoryReclaim'" and is silently ignored.
+autoMemoryReclaim=gradual
