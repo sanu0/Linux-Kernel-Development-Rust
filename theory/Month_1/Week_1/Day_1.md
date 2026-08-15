@@ -1,4 +1,7 @@
-# M1W1D1 — Linux Development Environment
+# M1W1D1 — Linux Development Environment ✅ COMPLETED
+
+> **Completed:** 2026-08-14. KVM working (`vmx`, `/dev/kvm` as `root:kvm 660`, `kvm_intel` loaded),
+> full LLVM 21 toolchain, ccache intercepting, 910 GB free. See `Day_2.md` for the build numbers.
 
 > **Goal:** turn a Windows laptop into a machine that can build the Linux kernel. By the end of today
 > you have a Linux userland with every build dependency, an LLVM toolchain, hardware virtualization
@@ -16,16 +19,16 @@
 
 ## Today's Checklist
 
-- [ ] WSL2 Ubuntu running, with 40+ GB of free disk confirmed
-- [ ] Understand *why* the working files must live on WSL's filesystem and not `/mnt/c/`
-- [ ] Install the build dependencies, and know what each one is for
-- [ ] Install the LLVM/Clang toolchain + `libclang-dev`, and know why Rust needs it
-- [ ] Install QEMU — it is what runs every kernel you build from Day 3 onward
-- [ ] Verify `/dev/kvm` exists, **and that you are in the `kvm` group**; persist across restarts if needed
-- [ ] Configure `git` identity (real name — this becomes a legal signature later)
-- [ ] Configure `ccache` and confirm it is on your `PATH`
-- [ ] Decide and create the directory where the kernel tree will live tomorrow
-- [ ] Journal: CPU count, RAM, disk free, kernel tree location, and every error you hit
+- [x] WSL2 Ubuntu running, with 40+ GB of free disk confirmed
+- [x] Understand *why* the working files must live on WSL's filesystem and not `/mnt/c/`
+- [x] Install the build dependencies, and know what each one is for
+- [x] Install the LLVM/Clang toolchain + `libclang-dev`, and know why Rust needs it
+- [x] Install QEMU — it is what runs every kernel you build from Day 3 onward
+- [x] Verify `/dev/kvm` exists, **and that you are in the `kvm` group**; persist across restarts if needed
+- [x] Configure `git` identity (real name — this becomes a legal signature later)
+- [x] Configure `ccache` and confirm it is on your `PATH`
+- [x] Decide and create the directory where the kernel tree will live tomorrow
+- [x] Journal: CPU count, RAM, disk free, kernel tree location, and every error you hit
 
 ---
 
@@ -721,20 +724,20 @@ case ":$PATH:" in *:/usr/lib/ccache:*) echo "ccache on PATH ok";; *) echo "ccach
 
 ## Done When
 
-- [ ] `uname -r` confirms WSL2 with a real Linux kernel version
-- [ ] 40+ GB free in `$HOME`, on the Linux filesystem
-- [ ] Every tool in the verification block reports a version
-- [ ] `pahole --version` works (proving `dwarves` is installed, not just assumed)
-- [ ] `libclang-dev` installed — you can explain why `bindgen` needs it
-- [ ] `qemu-system-x86_64 --version` works
-- [ ] `/dev/kvm` exists with sane permissions, **or** you have written down why it does not and moved on
-- [ ] `groups` lists `kvm` — and you can explain why the device existing was not sufficient
-- [ ] `git config user.name` is your real name, and you can explain what the DCO is
-- [ ] `which gcc` returns `/usr/lib/ccache/gcc`
-- [ ] `$LINUX_TREE` and `$LKDRUST_REPO` are set in `~/.bashrc` and the directories exist
-- [ ] `env_day1.txt` written, and the numbers copied into the journal table above and `_internal/SETUP_LOG.md`
-- [ ] You can explain, without notes, why the kernel tree must not live on `/mnt/c/`
-- [ ] **`check_day1.sh` exits 0** — no failures. Warnings are acceptable if you wrote down why
+- [x] `uname -r` confirms WSL2 with a real Linux kernel version
+- [x] 40+ GB free in `$HOME`, on the Linux filesystem
+- [x] Every tool in the verification block reports a version
+- [x] `pahole --version` works (proving `dwarves` is installed, not just assumed)
+- [x] `libclang-dev` installed — you can explain why `bindgen` needs it
+- [x] `qemu-system-x86_64 --version` works
+- [x] `/dev/kvm` exists with sane permissions, **or** you have written down why it does not and moved on
+- [x] `groups` lists `kvm` — and you can explain why the device existing was not sufficient
+- [x] `git config user.name` is your real name, and you can explain what the DCO is
+- [x] `which gcc` returns `/usr/lib/ccache/gcc`
+- [x] `$LINUX_TREE` and `$LKDRUST_REPO` are set in `~/.bashrc` and the directories exist
+- [x] `env_day1.txt` written, and the numbers copied into the journal table above and `_internal/SETUP_LOG.md`
+- [x] You can explain, without notes, why the kernel tree must not live on `/mnt/c/`
+- [x] **`check_day1.sh` exits 0** — no failures. Warnings are acceptable if you wrote down why
 
 ---
 

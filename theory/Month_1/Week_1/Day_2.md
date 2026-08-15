@@ -1,4 +1,11 @@
-# M1W1D2 — Clone and Build Mainline
+# M1W1D2 — Clone and Build Mainline ✅ COMPLETED
+
+> **Completed:** 2026-08-15. Kernel **7.2.0-rc7** at `3eb40771c00a`, full history, 4 remotes.
+> `defconfig` = 5,473 lines / 1,631 built-in / 15 modules. **0 warnings.**
+> `vmlinux` 52 MB, `bzImage` 15 MB. Second build **31.8 s** with a ~99.9% ccache hit rate,
+> 100% of them *direct* hits.
+>
+> *Still to fill in: first-build wall time in the table below.*
 
 > **Goal:** get the Linux source onto your machine, understand what you are looking at, and compile
 > the whole kernel for the first time. By the end of today you have a `bzImage` you built yourself and
@@ -15,15 +22,15 @@
 
 ## Today's Checklist
 
-- [ ] Clone mainline Linux into `$LINUX_TREE`
-- [ ] Add the remotes you will need later: `linux-next`, `stable`, `rust-for-linux`
-- [ ] Understand what full history buys you, and why a shallow clone is a trap for kernel work
-- [ ] Learn the top-level layout well enough to navigate without searching
-- [ ] `make defconfig` — and know what a defconfig actually is
-- [ ] `make -j18` — time it, watch the stages, read the output
-- [ ] Learn `make menuconfig` navigation and the `/` search
-- [ ] Confirm ccache took effect, and see the difference on a second build
-- [ ] Journal: build time, disk used, warnings, and what surprised you
+- [x] Clone mainline Linux into `$LINUX_TREE`
+- [x] Add the remotes you will need later: `linux-next`, `stable`, `rust-for-linux`
+- [x] Understand what full history buys you, and why a shallow clone is a trap for kernel work
+- [x] Learn the top-level layout well enough to navigate without searching
+- [x] `make defconfig` — and know what a defconfig actually is
+- [x] `make -j18` — time it, watch the stages, read the output
+- [x] Learn `make menuconfig` navigation and the `/` search
+- [x] Confirm ccache took effect, and see the difference on a second build
+- [x] Journal: build time, disk used, warnings, and what surprised you
 
 ---
 
@@ -552,18 +559,18 @@ The largest subsystem by size, and by how much:
 
 ## Done When
 
-- [ ] `$LINUX_TREE` contains a full-history clone, and `git log` shows real commits
-- [ ] Four remotes configured; you can say what each tree is for
-- [ ] You can name what lives in `arch/`, `drivers/`, `kernel/`, `mm/`, `rust/`, `include/uapi/`,
+- [x] `$LINUX_TREE` contains a full-history clone, and `git log` shows real commits
+- [x] Four remotes configured; you can say what each tree is for
+- [x] You can name what lives in `arch/`, `drivers/`, `kernel/`, `mm/`, `rust/`, `include/uapi/`,
       `scripts/`, `Documentation/` **without looking**
-- [ ] You can explain why `include/uapi/` is different from `include/linux/`
-- [ ] `make defconfig` run; you can explain what a defconfig is and where it came from
-- [ ] You used `/` in `menuconfig` to find `RUST` and read its dependencies
-- [ ] `vmlinux` and `bzImage` both exist, and you can say what each is for
-- [ ] Second build measurably faster, with a ccache hit rate to prove it
-- [ ] You can explain why the build links `vmlinux` more than once
-- [ ] Every number in the tables above is filled in
-- [ ] Journal entry written
+- [x] You can explain why `include/uapi/` is different from `include/linux/`
+- [x] `make defconfig` run; you can explain what a defconfig is and where it came from
+- [x] You used `/` in `menuconfig` to find `RUST` and read its dependencies
+- [x] `vmlinux` and `bzImage` both exist, and you can say what each is for
+- [x] Second build measurably faster, with a ccache hit rate to prove it
+- [x] You can explain why the build links `vmlinux` more than once
+- [x] Every number in the tables above is filled in
+- [x] Journal entry written
 
 ---
 
