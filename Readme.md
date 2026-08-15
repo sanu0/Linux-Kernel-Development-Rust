@@ -1343,21 +1343,21 @@ KernelRustBook expanded into the canonical resource: complete curriculum, CI-ver
 > **Do not move on until you have booted a kernel you compiled, with Rust enabled.**
 > Full instructions live in `SETUP.md`; this is the checklist.
 
-### Day 1 — Linux Development Environment
-- [ ] Install WSL2 Ubuntu (or set up your dedicated Linux box) with plenty of disk — a kernel tree plus builds wants 40+ GB
-- [ ] Install build dependencies: `build-essential flex bison bc libssl-dev libelf-dev libncurses-dev dwarves cpio rsync zstd git ccache`
-- [ ] Install LLVM/Clang toolchain (the kernel's Rust support wants `LLVM=1`) and `libclang-dev`
-- [ ] Verify `/dev/kvm` exists (Windows 11 enables nested virtualization by default; you may need `sudo modprobe kvm_intel` and a `wsl.conf` boot command to persist it)
-- [ ] Configure `git` identity, and set up `ccache` so rebuilds are fast
-- [ ] **Journal:** record your CPU count, RAM, disk, and where your kernel tree lives
+### Day 1 — Linux Development Environment ✅
+- [x] Install WSL2 Ubuntu (or set up your dedicated Linux box) with plenty of disk — a kernel tree plus builds wants 40+ GB
+- [x] Install build dependencies: `build-essential flex bison bc libssl-dev libelf-dev libncurses-dev dwarves cpio rsync zstd git ccache`
+- [x] Install LLVM/Clang toolchain (the kernel's Rust support wants `LLVM=1`) and `libclang-dev`
+- [x] Verify `/dev/kvm` exists (Windows 11 enables nested virtualization by default; you may need `sudo modprobe kvm_intel` and a `wsl.conf` boot command to persist it)
+- [x] Configure `git` identity, and set up `ccache` so rebuilds are fast
+- [x] **Journal:** record your CPU count, RAM, disk, and where your kernel tree lives
 
-### Day 2 — Clone and Build Mainline
-- [ ] `git clone https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git` (shallow clone first if bandwidth is tight, then unshallow later — you will want full history)
-- [ ] Also add remotes you will need later: `linux-next`, and the Rust-for-Linux tree
-- [ ] `make defconfig` then `make -j$(nproc)` — time it, write the number down
-- [ ] Learn `make menuconfig` navigation and search (`/`)
-- [ ] Understand the top-level layout: `arch/`, `block/`, `drivers/`, `fs/`, `include/`, `kernel/`, `mm/`, `net/`, `rust/`, `samples/`, `scripts/`, `tools/`, `Documentation/`
-- [ ] **Journal:** build time, warnings encountered, disk used
+### Day 2 — Clone and Build Mainline ✅
+- [x] `git clone https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git` (shallow clone first if bandwidth is tight, then unshallow later — you will want full history)
+- [x] Also add remotes you will need later: `linux-next`, and the Rust-for-Linux tree
+- [x] `make defconfig` then `make -j$(nproc)` — time it, write the number down
+- [x] Learn `make menuconfig` navigation and search (`/`)
+- [x] Understand the top-level layout: `arch/`, `block/`, `drivers/`, `fs/`, `include/`, `kernel/`, `mm/`, `net/`, `rust/`, `samples/`, `scripts/`, `tools/`, `Documentation/`
+- [x] **Journal:** build time, warnings encountered, disk used
 
 ### Day 3 — Fast Boot Loop (This Is The Most Important Day)
 - [ ] Install QEMU (`qemu-system-x86`) and **`virtme-ng`**
@@ -3981,8 +3981,8 @@ Track which `rust/kernel` modules you have actually read and used. The list evol
 
 ---
 
-*Current week: Week 0*
-*Weeks completed: none — start with `SETUP.md`*
+*Current week: Week 0 — Day 3 (fast boot loop)*
+*Days completed: D1 (lab) ✅, D2 (clone + build) ✅ — kernel 7.2.0-rc7, 31.8 s warm rebuild*
 *Monthly projects completed: 0 / 34 (17 Project A + 17 Project B)*
 *Merged upstream patches: 0*
 
