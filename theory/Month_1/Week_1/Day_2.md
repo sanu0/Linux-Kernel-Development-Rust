@@ -146,29 +146,96 @@ silently contradict another. Use `menuconfig`, or `scripts/config`, and always f
 
 ### 6. What `make` actually does
 
-The output scrolling past is not noise. Each prefix is a build stage, and knowing them means you can
-tell *where* a failure happened:
+`make` has one job: turn ~30,000 separate `.c` files into **one bootable file**. It does that in
+stages, and the two-to-six-letter word at the start of each output line tells you which stage you are
+watching. They are not noise — when a build fails, that word tells you *where*.
 
-| Prefix | Stage |
+#### The pipeline, in order
+
+**Step 1 — Work out what to build.** Read `.config` and turn it into something the compiler can use.
+You see `SYNC`.
+
+**Step 2 — Build the tools needed to build the kernel.** The kernel ships small helper programs that
+run on *your* machine during the build. They have to be compiled first. You see `HOSTCC`.
+
+**Step 3 — Compile every source file, one at a time.** Each `.c` becomes a `.o` ("object file" — one
+file's worth of machine code, not yet runnable). This is the bulk of the time and the thousands of
+lines scrolling past. You see `CC`, and from Day 4, `RUSTC` for Rust files.
+
+**Step 4 — Bundle each directory's objects together.** Rather than hand the linker 30,000 separate
+files, each directory's `.o` files get packed into one `built-in.a`. You see `AR` (short for
+"archive"). Purely organisational.
+
+**Step 5 — Link everything into one program.** The linker takes all those bundles and stitches them
+into a single file called **`vmlinux`** — the complete kernel. Linking is where "this function calls
+that function" gets resolved into real addresses. You see `LD`.
+
+**Step 6 — Check the loadable modules.** Anything set to `=m` in `.config` is built separately as a
+`.ko` file. `MODPOST` verifies each module only calls functions the kernel actually exports — catching
+at build time what would otherwise be a load-time failure.
+
+**Step 7 — Add extra information into the kernel.** Two things get embedded here: the **symbol table**
+(explained just below) and **BTF**, a compact description of every data structure, which is what tools
+like `bpftrace` read to understand kernel types. You see `NM`, `KSYMS`, `BTF`.
+
+**Step 8 — Shrink it and make it bootable.** `vmlinux` is large and not in the format a bootloader
+expects. It gets stripped of anything unnecessary, compressed, and wrapped in a small boot header. The
+result is **`bzImage`**. You see `OBJCOPY`, `GZIP`/`LZO`, and finally `BUILD`.
+
+#### Quick lookup
+
+| You see | It means |
 |---|---|
-| `SYNC` | reconcile `.config` into `include/config/auto.conf` |
-| `HOSTCC` | compile a tool that runs on your machine, not in the kernel (e.g. `fixdep`) |
-| `CC` | compile one kernel C file to `.o` |
-| `RUSTC` | compile Rust kernel code (you will see this from Day 4) |
-| `AR` | archive `.o` files into `built-in.a` per directory |
-| `LD` | link |
-| `MODPOST` | check module symbol references; generate `.mod.c` glue |
-| `NM` / `KSYMS` | extract symbols and generate the kallsyms table |
-| `BTF` | `pahole` converts DWARF into BTF type info (what eBPF consumes) |
-| `OBJCOPY` / `GZIP` / `LZO` | strip and compress the image |
-| `BUILD` | produce the final bootable `bzImage` |
+| `SYNC` | reading your `.config` |
+| `HOSTCC` | building a helper tool that runs on your machine |
+| `CC` | compiling one kernel C file |
+| `RUSTC` | compiling one kernel Rust file (from Day 4) |
+| `AR` | bundling a directory's object files together |
+| `LD` | linking — combining objects into one program |
+| `MODPOST` | checking that modules only use symbols the kernel exports |
+| `NM` / `KSYMS` | building the kernel's internal symbol table |
+| `BTF` | embedding type information for eBPF tools |
+| `OBJCOPY` / `GZIP` / `LZO` | stripping and compressing |
+| `BUILD` | producing the final bootable `bzImage` |
 
-**One genuinely interesting detail.** You will see `vmlinux` linked more than once, with
-`.tmp_vmlinux1`, `.tmp_vmlinux2` along the way. That is not a mistake. The kernel embeds its own
-symbol table (`kallsyms`) so it can print readable function names in an oops — but adding that table
-changes the size of the image, which changes every address, which invalidates the table you just
-generated. So the build links, extracts symbols, relinks, and iterates until the addresses converge.
-Your `dmesg` stack traces are readable because of that loop.
+#### Why `vmlinux` gets linked more than once
+
+You will notice `.tmp_vmlinux1`, `.tmp_vmlinux2` go by, and the kernel apparently being linked two or
+three times. That is deliberate, and the reason is a genuine chicken-and-egg problem.
+
+**The goal:** when the kernel crashes, you want it to print
+
+```text
+BUG: kernel NULL pointer dereference at start_kernel+0x42
+```
+
+rather than
+
+```text
+BUG: kernel NULL pointer dereference at 0xffffffff81000042
+```
+
+To print a *name*, the kernel needs a lookup table of "address → function name" stored **inside
+itself**. That table is called **kallsyms**.
+
+**The problem:**
+
+1. Link the kernel — now every function has a fixed address
+2. Build the name table from those addresses
+3. Put the table inside the kernel — **the kernel just got bigger**
+4. Everything positioned after the table has now shifted, so the addresses in the table you just built
+   are wrong
+
+**It is exactly like the index at the back of a book.** You can only write the index once the pages are
+numbered — but adding twenty pages of index pushes content onto different pages, so the numbers you
+just wrote are now wrong. Redo the index, and it changes length again, shifting things slightly once
+more.
+
+The build solves it by repeating: link, build table, link again with the table in place, rebuild the
+table, and keep going until the addresses stop moving. Usually two or three passes.
+
+**So:** every readable function name in a `dmesg` stack trace exists because of that loop. When you
+decode your first oops on Day 12, this is the machinery you will be relying on.
 
 ### 7. vmlinux vs bzImage vs modules
 
