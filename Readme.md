@@ -1359,13 +1359,13 @@ KernelRustBook expanded into the canonical resource: complete curriculum, CI-ver
 - [x] Understand the top-level layout: `arch/`, `block/`, `drivers/`, `fs/`, `include/`, `kernel/`, `mm/`, `net/`, `rust/`, `samples/`, `scripts/`, `tools/`, `Documentation/`
 - [x] **Journal:** build time, warnings encountered, disk used
 
-### Day 3 — Fast Boot Loop (This Is The Most Important Day)
-- [ ] Install QEMU (`qemu-system-x86`) and **`virtme-ng`**
-- [ ] Boot your compiled kernel with `vng` and get a shell inside it
-- [ ] Boot it the manual way too, with an explicit `qemu-system-x86_64 -kernel ... -append "console=ttyS0" -nographic` command, so you understand what `vng` automates
-- [ ] Set up serial console capture to a file so you never lose an oops
-- [ ] **Target: edit → build → boot → shell in under 60 seconds.** If it is slower, fix that now, not later
-- [ ] **Journal:** your exact boot command lines, saved as scripts in `codes/Month_1/Week_1/Day_3/`
+### Day 3 — Fast Boot Loop (This Is The Most Important Day) ✅
+- [x] Install QEMU (`qemu-system-x86`) and **`virtme-ng`** — via `apt`, not pip (PEP 668)
+- [x] Boot your compiled kernel with `vng` and get a shell inside it
+- [x] Boot it the manual way too, with an explicit `qemu-system-x86_64 -kernel ... -append "console=ttyS0" -nographic` command, so you understand what `vng` automates
+- [x] Set up serial console capture to a file so you never lose an oops
+- [x] **Target: edit → build → boot → shell in under 60 seconds.** If it is slower, fix that now, not later
+- [x] **Journal:** your exact boot command lines, saved as scripts in `codes/Month_1/Week_1/Day_3/`
 
 ### Day 4 — Rust Toolchain for the Kernel
 - [ ] Install `rustup`; then install the **exact** `rustc` version the tree wants, plus `rust-src`, `clippy`, `rustfmt`
@@ -3981,8 +3981,9 @@ Track which `rust/kernel` modules you have actually read and used. The list evol
 
 ---
 
-*Current week: Week 0 — Day 3 (fast boot loop)*
-*Days completed: D1 (lab) ✅, D2 (clone + build) ✅ — kernel 7.2.0-rc7, 31.8 s warm rebuild*
+*Current week: Week 0 — Day 4 (Rust toolchain)*
+*Days completed: D1 (lab) ✅, D2 (clone + build) ✅, D3 (boot loop) ✅*
+*Kernel 7.2.0-rc7 · 31.8 s warm rebuild · `vng` shell working on my own kernel*
 *Monthly projects completed: 0 / 34 (17 Project A + 17 Project B)*
 *Merged upstream patches: 0*
 

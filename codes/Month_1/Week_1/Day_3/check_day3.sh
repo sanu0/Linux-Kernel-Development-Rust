@@ -89,19 +89,43 @@ fi
 # ─────────────────────────────────────────────────────────────────
 section "Does it actually boot?"
 
-if command -v vng > /dev/null 2>&1 && [ -n "$BZ" ]; then
+# virtme-ng needs a real pseudo-terminal: it fails with "not a valid pts" when stdin is
+# not a tty (cron, CI, or a shell invoked non-interactively). Detect that and say so,
+# rather than reporting it as a broken kernel.
+if ! [ -t 0 ]; then
+  warn "no TTY on stdin - skipping the boot test"
+  info "vng requires a pseudo-terminal; run this script from a normal terminal (or inside tmux)"
+elif command -v vng > /dev/null 2>&1 && [ -n "$BZ" ]; then
   printf '  booting the guest (a few seconds)...\n'
+  ERRLOG=$(mktemp); OUTLOG=$(mktemp)
   S=$(date +%s)
-  GUEST=$(timeout 120 vng -- uname -r 2>/dev/null | tr -d '\r' | tail -1)
+  # Two subtleties, both of which caused a hang the first time round:
+  #
+  #  1. `timeout` WITHOUT --foreground runs its child in a NEW PROCESS GROUP so it can
+  #     signal the whole group. That makes QEMU a background job as far as the terminal is
+  #     concerned, so the moment it touches the tty it gets SIGTTOU/SIGTTIN - whose default
+  #     action is to STOP the process. The result is a whole tree in state T, frozen, with
+  #     timeout itself stopped too so it never fires. --foreground keeps it in our group.
+  #
+  #  2. Write stdout to a FILE, not a pipe. virtme-ng wants a real terminal, so keep the
+  #     tty attached rather than capturing through $( ).
+  timeout --foreground 120 vng --quiet --exec 'uname -r' > "$OUTLOG" 2>"$ERRLOG"
   RC=$?
   E=$(date +%s)
   BOOT_T=$(( E - S ))
+  GUEST=$(tr -d '\r' < "$OUTLOG" | grep -vE '^\s*$' | tail -1)
 
   HOST_VER=$(make -s kernelversion 2>/dev/null)
   if [ "$RC" -eq 124 ]; then
     fail "boot timed out after 120s"
+    [ -s "$ERRLOG" ] && sed 's/^/         | /' "$ERRLOG" | tail -10
   elif [ -z "$GUEST" ]; then
-    fail "guest produced no output - try 'vng -- uname -r' by hand to see the error"
+    fail "guest produced no output"
+    if [ -s "$ERRLOG" ]; then
+      info "vng said:"
+      sed 's/^/         | /' "$ERRLOG" | tail -10
+    fi
+    info "try by hand: vng --exec 'uname -r'"
   else
     ok "guest booted in ${BOOT_T}s and reported: $GUEST"
     # The guest must be running the kernel you just built, not some other one.
@@ -110,6 +134,7 @@ if command -v vng > /dev/null 2>&1 && [ -n "$BZ" ]; then
       *)            warn "guest reports '$GUEST' but the tree is '$HOST_VER' - stale build?" ;;
     esac
   fi
+  rm -f "$ERRLOG" "$OUTLOG"
 
   if   [ "$BOOT_T" -le 15 ]; then ok   "boot time ${BOOT_T}s - good"
   elif [ "$BOOT_T" -le 40 ]; then warn "boot time ${BOOT_T}s - slower than ideal; is KVM active?"

@@ -1,4 +1,15 @@
-# M1W1D3 — The Fast Boot Loop
+# M1W1D3 — The Fast Boot Loop ✅ COMPLETED
+
+> **Completed:** 2026-08-17. QEMU 10.2.1, virtme-ng 1.40 (from `apt`, not pip — see Phase 1).
+> Manual QEMU boot reached `VFS: Unable to mount root fs` in **1.7 s** — a clean boot with no root
+> filesystem, exactly as intended. After `vng --kconfig` + rebuild (4m58s, build `#3`),
+> `vng` gave an interactive shell: hostname `virtme-ng`, kernel `7.2.0-rc7+`, home directory shared in.
+>
+> **Two real bugs found and fixed in this day's material:**
+> - `pip3 install --user virtme-ng` fails on Ubuntu 24.04+ under PEP 668. Use `sudo apt install virtme-ng`.
+> - Wrapping `vng` in bare `timeout` freezes the whole process tree in state `T`. `timeout` without
+>   `--foreground` moves the child to a new process group, QEMU then counts as a background job, and
+>   its terminal access raises SIGTTOU/SIGTTIN — whose default action is *stop*. Fixed in both scripts.
 
 > **Goal:** boot the kernel you built yesterday, get a shell inside it, and get the whole
 > edit → build → boot → shell cycle under 60 seconds.
@@ -15,15 +26,15 @@
 
 ## Today's Checklist
 
-- [ ] Install QEMU and `virtme-ng`
-- [ ] Boot your kernel manually with a raw `qemu-system-x86_64` command — and understand the panic
-- [ ] Understand what a kernel needs in order to reach userspace
-- [ ] Boot with `vng` and get a real shell inside your own kernel
-- [ ] Understand what `vng` did that the raw command could not
-- [ ] Capture the serial console to a file so you never lose an oops
-- [ ] Measure the full edit → build → boot loop; get it under 60 seconds
-- [ ] Save your boot commands as scripts you will reuse for 18 months
-- [ ] Journal: loop time, boot time, and the exact commands
+- [x] Install QEMU and `virtme-ng`
+- [x] Boot your kernel manually with a raw `qemu-system-x86_64` command — and understand the panic
+- [x] Understand what a kernel needs in order to reach userspace
+- [x] Boot with `vng` and get a real shell inside your own kernel
+- [x] Understand what `vng` did that the raw command could not
+- [x] Capture the serial console to a file so you never lose an oops
+- [x] Measure the full edit → build → boot loop; get it under 60 seconds
+- [x] Save your boot commands as scripts you will reuse for 18 months
+- [x] Journal: loop time, boot time, and the exact commands
 
 ---
 
@@ -63,8 +74,8 @@ it is how you boot an arm64 or riscv64 kernel on an x86 machine in Month 12.
 
 ### 3. What a kernel needs to reach userspace
 
-On Day 2 you booted your kernel manually and it panicked with `No working init found`. That was not a
-failure — it means the kernel booted **perfectly** and then found nothing to hand control to.
+On Day 2 you booted your kernel manually and it panicked. That was not a failure — it means the kernel
+booted **perfectly** and then found nothing to hand control to.
 
 A running Linux system needs three things:
 
@@ -147,7 +158,7 @@ that entirely with a neat trick:
 with a generated in-memory init. No disk image, no initramfs to build, no installation. Your home
 directory, your tools, and your kernel tree are all just *there* inside the guest.
 
-That means `vng -- ./my_test.sh` builds nothing, copies nothing, and boots your kernel in a couple of
+That means `vng --exec ./my_test.sh` builds nothing, copies nothing, and boots your kernel in a couple of
 seconds — and your test script is already present because it is the same filesystem.
 
 One thing to know: `defconfig` does not enable the virtio and 9p/virtiofs options `virtme-ng` needs to
@@ -199,13 +210,29 @@ ls -l /dev/kvm
 ```bash
 sudo apt install -y qemu-system-x86 qemu-utils
 
-pipx install virtme-ng 2>/dev/null || pip3 install --user virtme-ng
-# make sure ~/.local/bin is on PATH
-command -v vng || { echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.bashrc; source ~/.bashrc; }
+# Ubuntu packages virtme-ng, which is the least fragile way to get it.
+sudo apt install -y virtme-ng
 
 qemu-system-x86_64 --version | head -1
 vng --version
 ```
+
+> **Do not use `pip3 install --user virtme-ng`.** On Ubuntu 24.04 and later it fails with
+> `error: externally-managed-environment`. That is **PEP 668**: the distribution owns its Python
+> installation — `apt` packages depend on specific versions of those libraries — so `pip` is blocked
+> from writing into it, precisely so a stray `pip install` cannot break system tools.
+>
+> The right responses, in order of preference:
+>
+> 1. **Use the distro package** — `sudo apt install -y virtme-ng`. Ubuntu 26.04 ships 1.40 against
+>    upstream's 1.41, so you lose essentially nothing.
+> 2. **Use `pipx`** if your distro does not package the tool — it gives each tool its own private
+>    virtualenv, which is what you actually wanted from `pip --user` anyway:
+>    `sudo apt install -y pipx && pipx ensurepath && pipx install virtme-ng`
+> 3. **Do not reach for `--break-system-packages`.** It does exactly what it says.
+>
+> You will hit this again in the roadmap — `b4` (Week 41) is also packaged by Ubuntu, and `dtschema`
+> (Week 14) is not, so that one genuinely needs `pipx`.
 
 ### Phase 2 — Boot it the hard way, and read the panic
 
@@ -227,10 +254,28 @@ Watch the whole boot go past. You are seeing `start_kernel` do its work: memory 
 scheduler, then device probing. Then:
 
 ```text
-Kernel panic - not syncing: No working init found.
+List of all bdev filesystems:
+ ext3
+ ext2
+ ext4
+ vfat
+ msdos
+ iso9660
+
+Kernel panic - not syncing: VFS: Unable to mount root fs on unknown-block(0,0)
 ```
 
-**That is success.** Your kernel booted completely and had nothing to hand control to — concept 3.
+**That is success.** Your kernel booted completely and then had nowhere to go — concept 3.
+
+There are two different "no userspace" panics, and which one you get tells you how far the kernel got:
+
+| Panic | Means |
+|---|---|
+| `VFS: Unable to mount root fs on unknown-block(0,0)` | no root device at all. `(0,0)` is a null major/minor — nothing was specified and nothing was found. **This is what you get here**, since you passed no `root=` and no `-initrd` |
+| `No working init found` | the root filesystem *was* mounted, but there is no executable init inside it |
+
+The `List of all bdev filesystems` above the panic is the kernel being helpful: these are the filesystem
+types it is able to mount. It had the drivers ready and no device to point them at.
 
 Exit QEMU with **`Ctrl-A`** then **`X`**.
 
@@ -286,9 +331,9 @@ it has your files.
 Now the mode you will use constantly — run one command in the guest and come straight back:
 
 ```bash
-vng -- uname -r
-vng -- 'dmesg | tail -20'
-vng -- 'ls /sys/kernel/debug | head'
+vng --exec 'uname -r'
+vng --exec 'dmesg | tail -20'
+vng --exec 'ls /sys/kernel/debug | head'
 ```
 
 ### Phase 5 — Measure the loop
@@ -297,7 +342,7 @@ The number that matters. Touch a file, rebuild, boot, get output:
 
 ```bash
 cd "$LINUX_TREE"
-time ( touch kernel/sched/core.c && make -j"$(nproc)" > /dev/null 2>&1 && vng -- uname -r )
+time ( touch kernel/sched/core.c && make -j"$(nproc)" > /dev/null 2>&1 && vng --exec 'uname -r' )
 ```
 
 **Target: under 60 seconds.** If it is slower:
@@ -310,7 +355,7 @@ time ( touch kernel/sched/core.c && make -j"$(nproc)" > /dev/null 2>&1 && vng --
 Also time a boot on its own, with nothing to rebuild:
 
 ```bash
-time vng -- true
+time vng --exec true
 ```
 
 That is your floor — pure boot cost, usually a couple of seconds.
@@ -345,7 +390,7 @@ bash ~/LKD_RUST/codes/Month_1/Week_1/Day_3/check_day3.sh
 ```bash
 qemu-system-x86_64 --version | head -1
 vng --version
-cd "$LINUX_TREE" && vng -- uname -r          # prints YOUR kernel version
+cd "$LINUX_TREE" && vng --exec 'uname -r'          # prints YOUR kernel version
 grep -c CONFIG_VIRTIO .config                # virtio options present
 ls -lh ~/LKD_RUST/Month_1/Week_1/boot_manual.log
 ```
@@ -380,7 +425,7 @@ ls -lh ~/LKD_RUST/Month_1/Week_1/boot_manual.log
 
 | Measurement | Value |
 |---|---|
-| Pure boot (`time vng -- true`) | |
+| Pure boot (`time vng --exec true`) | |
 | Incremental rebuild after touching one file | |
 | **Full loop: touch → build → boot → output** | |
 | Manual QEMU boot to panic | |
@@ -401,18 +446,18 @@ Three things I saw scroll past that I did not recognise, and want to look up:
 
 ## Done When
 
-- [ ] QEMU and `vng` both installed and reporting versions
-- [ ] You booted manually with a raw `qemu-system-x86_64` command and can explain the panic
-- [ ] You can explain what a kernel needs to reach userspace, and what an initramfs solves
-- [ ] You know how to exit QEMU (`Ctrl-A X`) without needing a second terminal
-- [ ] You can explain why kernel developers use a serial console
-- [ ] You can name four kernel command-line parameters and what each does
-- [ ] `vng` gives you a shell, `uname -a` shows your kernel, and your home directory is there
-- [ ] `vng -- <cmd>` runs a single command and returns
-- [ ] A boot log captured to a file
-- [ ] **Full loop measured and under 60 seconds**
-- [ ] Boot commands saved as scripts
-- [ ] Journal filled in
+- [x] QEMU and `vng` both installed and reporting versions
+- [x] You booted manually with a raw `qemu-system-x86_64` command and can explain the panic
+- [x] You can explain what a kernel needs to reach userspace, and what an initramfs solves
+- [x] You know how to exit QEMU (`Ctrl-A X`) without needing a second terminal
+- [x] You can explain why kernel developers use a serial console
+- [x] You can name four kernel command-line parameters and what each does
+- [x] `vng` gives you a shell, `uname -a` shows your kernel, and your home directory is there
+- [x] `vng --exec '<cmd>'` runs a single command and returns
+- [x] A boot log captured to a file
+- [x] **Full loop measured and under 60 seconds**
+- [x] Boot commands saved as scripts
+- [x] Journal filled in
 
 ---
 

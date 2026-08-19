@@ -121,7 +121,7 @@ Then load them in a QEMU guest, never on your host:
 
 ```bash
 cd "$LINUX_TREE"
-vng -- "insmod ~/LKD_RUST/codes/Month_3/Week_9/kmod/hello.ko; dmesg | tail; rmmod hello"
+vng --exec "insmod ~/LKD_RUST/codes/Month_3/Week_9/kmod/hello.ko; dmesg | tail; rmmod hello"
 ```
 
 > **Rust out-of-tree modules:** kernel Rust support for out-of-tree modules is thinner than for C.

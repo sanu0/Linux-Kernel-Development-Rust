@@ -305,8 +305,8 @@ exit                 # back to the host
 Run a single command in the guest and come straight back — this is the loop you will live in:
 
 ```bash
-vng -- uname -r
-vng -- 'dmesg | tail -30'
+vng --exec 'uname -r'
+vng --exec 'dmesg | tail -30'
 ```
 
 **Save your commands as scripts** in `codes/Month_1/Week_1/Day_1/`. You will run them thousands of times.
@@ -314,7 +314,7 @@ vng -- 'dmesg | tail -30'
 ### Timing your loop
 
 ```bash
-time (touch kernel/sched/core.c && make -j"$(nproc)" && vng -- uname -r)
+time (touch kernel/sched/core.c && make -j"$(nproc)" && vng --exec 'uname -r')
 ```
 
 Target: under 60 seconds for an incremental build plus boot. If it is much slower:
@@ -413,8 +413,8 @@ Build and boot:
 
 ```bash
 time make LLVM=1 -j"$(nproc)"
-vng --build --config .config    # or: vng -- with your existing build
-vng -- 'uname -a; ls /sys/kernel/debug | head'
+vng --build --config .config    # or: vng (no --build) with your existing build
+vng --exec 'uname -a; ls /sys/kernel/debug | head'
 ```
 
 > **Note:** `PROVE_LOCKING` and the `DEBUG_*` options slow the kernel down significantly. That is
@@ -430,7 +430,7 @@ vng -- 'uname -a; ls /sys/kernel/debug | head'
 make LLVM=1 -j"$(nproc)" samples/rust/
 
 # Boot and load one
-vng -- 'insmod samples/rust/rust_minimal.ko; dmesg | tail -20; rmmod rust_minimal; dmesg | tail -5'
+vng --exec 'insmod samples/rust/rust_minimal.ko; dmesg | tail -20; rmmod rust_minimal; dmesg | tail -5'
 ```
 
 You should see the module's init and exit messages in `dmesg`.
@@ -629,10 +629,10 @@ make kernelversion
 grep -c CONFIG_RUST=y .config
 
 # Boot loop
-vng -- uname -r
+vng --exec 'uname -r'
 
 # Rust module loads
-vng -- 'insmod samples/rust/rust_minimal.ko && dmesg | tail -5'
+vng --exec 'insmod samples/rust/rust_minimal.ko && dmesg | tail -5'
 
 # Upstream tooling
 git send-email --version

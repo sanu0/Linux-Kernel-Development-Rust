@@ -18,7 +18,14 @@ done
 
 : "${LINUX_TREE:?LINUX_TREE not set - open a new shell or re-check ~/.bashrc}"
 cd "$LINUX_TREE" || exit 1
-command -v vng > /dev/null 2>&1 || { echo "vng not found - install virtme-ng (Day 3 Phase 1)."; exit 1; }
+command -v vng > /dev/null 2>&1 || { echo "vng not found - install with: sudo apt install -y virtme-ng"; exit 1; }
+
+# virtme-ng requires a real pseudo-terminal and fails with "not a valid pts" without one.
+if ! [ -t 0 ]; then
+  echo "No TTY on stdin. vng needs a pseudo-terminal - run this from a normal terminal"
+  echo "(or inside tmux/screen), not from a pipe, cron, or a non-interactive shell."
+  exit 1
+fi
 
 say() { printf '\n\033[1m== %s ==\033[0m\n' "$1"; }
 secs() { printf '%dm %02ds' $(( $1 / 60 )) $(( $1 % 60 )); }
@@ -35,13 +42,26 @@ esac
 # ── 1. Pure boot cost ────────────────────────────────────────────
 # Nothing to rebuild: this is the floor, the irreducible cost of starting the VM.
 say "1. Boot only (nothing rebuilt)"
-S=$(date +%s); vng -- true > /dev/null 2>&1; RC=$?; E=$(date +%s)
+# NOTE: do not wrap vng in bare `timeout`, and do not capture its output with $( ).
+# `timeout` without --foreground puts the child in its own process group, which makes QEMU
+# a background job; touching the terminal then raises SIGTTOU/SIGTTIN and STOPS the whole
+# tree (state T) rather than running it. Keep vng in our process group, and redirect to
+# files rather than pipes so it keeps the tty it needs.
+ERRLOG=$(mktemp)
+S=$(date +%s); vng --quiet --exec true > /dev/null 2>"$ERRLOG"; RC=$?; E=$(date +%s)
 T_BOOT=$(( E - S ))
 if [ "$RC" -ne 0 ]; then
-  echo "  vng failed (exit $RC). Try 'vng -- uname -r' by hand to see the error."
-  echo "  Most common cause: virtio/9p options missing - run 'vng --kconfig' and rebuild."
+  echo "  vng failed (exit $RC):"
+  [ -s "$ERRLOG" ] && sed 's/^/    | /' "$ERRLOG" | tail -10
+  echo
+  echo "  Check, in order:"
+  echo "    - by hand:  vng --exec 'uname -r'"
+  echo "    - virtio/9p options missing? run 'vng --kconfig' then rebuild"
+  echo "    - not a valid pts? run from a normal terminal, or inside tmux"
+  rm -f "$ERRLOG"
   exit 1
 fi
+rm -f "$ERRLOG"
 echo "  $(secs $T_BOOT)"
 
 # ── 2. No-op build ───────────────────────────────────────────────
@@ -57,7 +77,11 @@ echo "  $(secs $T_NOOP)"
 say "3. Full loop: touch a file -> build -> boot -> output"
 touch kernel/sched/core.c
 S=$(date +%s)
-make -j"$JOBS" > /dev/null 2>&1 && OUT=$(vng -- uname -r 2>/dev/null | tr -d '\r')
+GUESTLOG=$(mktemp)
+make -j"$JOBS" > /dev/null 2>&1 \
+  && vng --quiet --exec 'uname -r' > "$GUESTLOG" 2>/dev/null
+OUT=$(tr -d '\r' < "$GUESTLOG" | grep -vE '^\s*$' | tail -1)
+rm -f "$GUESTLOG"
 E=$(date +%s)
 T_LOOP=$(( E - S ))
 echo "  guest reported: ${OUT:-<no output>}"

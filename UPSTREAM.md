@@ -104,7 +104,7 @@ git checkout -b my-change origin/master      # or the right subsystem tree
 
 # 2. Make the change. Build it. BOOT IT.
 make LLVM=1 -j"$(nproc)"
-vng -- 'insmod ...; dmesg | tail'
+vng --exec 'insmod ...; dmesg | tail'
 
 # 3. Commit with sign-off
 git commit -s
@@ -532,7 +532,7 @@ Reviewing is how you become known, and it makes you a better author. Start in We
 ```bash
 b4 shazam <msgid>          # apply the series locally
 make LLVM=1 -j"$(nproc)"   # does it build?
-vng -- ...                 # does it boot? does it work?
+vng --exec ...                 # does it boot? does it work?
 ```
 
 Then read it critically:
