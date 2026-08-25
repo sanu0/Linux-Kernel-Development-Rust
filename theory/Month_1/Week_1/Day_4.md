@@ -30,9 +30,10 @@
 
 ## Concepts
 
-### 1. What your tree actually demands
+### 1. Ask the kernel what it needs — don't guess
 
-Your kernel names its own requirements. Ask it rather than trusting any guide, including this one:
+Every kernel version needs particular tool versions. Rather than trusting a guide — including this one —
+just ask your own tree:
 
 ```bash
 scripts/min-tool-version.sh rustc      # 1.85.0
@@ -40,119 +41,144 @@ scripts/min-tool-version.sh bindgen    # 0.71.1
 scripts/min-tool-version.sh llvm       # 17.0.1
 ```
 
-Those are **minimums**, not exact pins. Newer usually works — you already have LLVM 21 against a
-minimum of 17. But "usually" is doing real work in that sentence, which is why the next concept exists.
+These are **minimums**, not exact versions. Newer is usually fine — you already have LLVM 21 where 17 is
+the floor.
 
-### 2. Why the version matters more here than in normal Rust
+"Usually" is doing a lot of work in that sentence, though. Which brings us to the next bit.
 
-Rust ships a new stable every six weeks. Userspace code copes because Rust takes backwards
-compatibility seriously. Kernel Rust is more fragile than normal Rust for two reasons:
+### 2. Why versions matter more here than in normal Rust
 
-- **It uses unstable features.** The kernel needs language features not yet stabilised, and unstable
-  features can change or disappear between releases.
-- **`bindgen` output is version-sensitive.** bindgen generates the Rust view of C headers. A different
-  bindgen version can emit different type names or layouts, and the kernel's abstractions are written
-  against specific output.
+Rust releases a new version every six weeks, and normal Rust code barely notices — the language works
+hard at not breaking old code.
 
-So the kernel pins a floor, tests against particular versions, and `rust_is_available.sh` refuses to
-proceed if you are outside the supported range. Pinning your toolchain per-tree is not paranoia; it is
-how you avoid losing an evening to a toolchain upgrade you did not ask for.
+Kernel Rust is more delicate, for two reasons:
 
-### 3. Why `rustup` and not `apt install rustc`
+**It uses experimental features.** Some of what the kernel needs isn't finished yet. Unfinished features
+can change or disappear in the next release.
 
-Because you need a **specific** version and the `rust-src` component, and distro packages give you
-neither reliably. `rustup` manages multiple toolchains side by side and can pin one per directory,
-which is exactly the shape of the problem.
+**bindgen's output shifts between versions.** bindgen reads C headers and writes Rust. Different versions
+write it slightly differently — different names, different layouts — and the kernel's code is written
+expecting one particular style.
 
-This is the opposite of yesterday's lesson with `virtme-ng`, where the distro package was the right
-answer. The rule is not "always apt" — it is *use the tool that gives you version control over the
-thing whose version matters*.
+So we **pin the version to this folder**. Upgrade Rust globally next month and this kernel still builds,
+because the pin is per-directory.
 
-### 4. Why `rust-src` — the interesting one
+### 3. Why `rustup` and not `apt`
 
-Normally `rustc` links against a **precompiled** `core` and `std` shipped for your platform. The kernel
-cannot use those, for a simple reason: it is not your platform.
+Yesterday `apt` was the right answer for virtme-ng. Today it isn't. Two things we need that `apt` won't
+give us reliably: a **specific version**, and a component called **`rust-src`**.
 
-The kernel builds for its own **custom target** — no operating system underneath, no standard library,
-its own code-generation flags, its own ABI decisions, `no_std`. There is no prebuilt `core` for
-"x86_64 kernel with these exact flags," so the kernel **compiles `core` and `alloc` from source
-itself**, as part of your kernel build.
+`rustup` handles both. It keeps several Rust versions side by side and can lock one to a single folder.
 
-That is what `rust-src` provides: the source code of the Rust standard library. Without it the build
-fails immediately, because there is nothing to compile.
+The rule isn't "always use apt." It's *use whichever tool lets you control the thing whose version
+actually matters*.
 
-You will literally see this scroll past:
+### 4. Why `rust-src` — the surprising one
+
+When you write normal Rust and use `Vec` or `Option`, that code comes from Rust's **standard library**.
+You don't write it; it ships with Rust.
+
+And it ships **already compiled** — for Linux on x86, for Windows, for Mac. Building a normal program
+just glues that pre-built library onto your code.
+
+**The kernel can't use any of them**, because every one assumes there's an operating system underneath.
+The standard library asks the OS for memory. It asks the OS to print. But the kernel *is* the operating
+system — there's nobody underneath to ask.
+
+Think of it as a toolbox that arrives pre-assembled for a particular workshop. Rust ships pre-assembled
+toolboxes for "Linux desktop," "Windows," "Mac." Nobody ships one labelled *"inside the Linux kernel,
+built with these exact flags"* — far too specific, and there are endless variations.
+
+So the kernel takes the **plans** and builds its own. **`rust-src` is the plans** — the actual source
+code of Rust's standard library. Without it there's nothing to build from and the kernel build fails
+straight away.
+
+What gets built, and what doesn't:
+
+| Part | Built? | What it is |
+|---|---|---|
+| `core` | ✓ | the basics — numbers, slices, `Option`, `Result`, iterators. Needs no OS |
+| `alloc` | ✓ | the parts needing memory — `Vec`, `Box`. The kernel supplies its own allocator |
+| `compiler_builtins` | ✓ | tiny low-level helpers the compiler assumes exist |
+| `std` | **✗** | files, threads, sockets, `println!` — all need an OS |
+
+That last row is what `no_std` means: you get `core` and `alloc`, never `std`.
+
+You'll see it happen:
 
 ```text
 RUSTC L core.o
 RUSTC L compiler_builtins.o
 ```
 
-Your kernel build compiles the Rust standard library. That is not a metaphor.
+Your kernel build compiling Rust's standard library, in the middle of building an operating system. Not
+a figure of speech.
 
-### 5. The kernel does not use Cargo
+### 5. There is no Cargo, and there never will be
 
-If you come from normal Rust this is the biggest adjustment. There is no `Cargo.toml`, no `cargo build`,
-no `crates.io` dependency.
+If you've written normal Rust, this is the biggest adjustment. No `Cargo.toml`. No `cargo build`. No
+pulling crates from the internet. Ever.
 
-Kbuild invokes `rustc` directly, one crate at a time, passing `--extern` flags by hand. The reasons are
-non-negotiable from the kernel's side:
+Kbuild calls `rustc` directly instead. Three reasons, none negotiable:
 
-- **No network at build time.** A kernel build must be reproducible and offline.
-- **No unvetted dependencies.** Every line shipped in the kernel is reviewed. You cannot pull in a crate
-  because it was convenient.
-- **Kbuild already owns the build.** Two build systems fighting over one tree is a bad idea.
+- **A kernel build must work offline** and produce the same result every time.
+- **Every line shipped in the kernel gets read by a human.** You can't pull in a stranger's code because
+  it was convenient.
+- **Kbuild already runs the build.** Two build systems fighting over one tree ends badly.
 
-Where the kernel genuinely needs an external crate, it is **vendored** — copied in and reviewed.
-`rust/pin-init/` is a vendored crate, and 7.2 brought in `zerocopy` the same way.
+When the kernel genuinely needs an outside crate, it gets **vendored** — copied into the tree and
+reviewed like any other kernel code. `rust/pin-init/` is one. Version 7.2 brought in `zerocopy` the same
+way.
 
-Consequence for you: `cargo add` is not a thing you will ever do for kernel code. If you need
-functionality, you write it or you wrap the C that already exists.
+What this means for you: `cargo add` is not something you'll ever do here. Need functionality? Write it,
+or wrap the C that already exists.
 
-### 6. What `rust_is_available.sh` checks
+### 6. The gate: `make LLVM=1 rustavailable`
 
-`make LLVM=1 rustavailable` runs `scripts/rust_is_available.sh`, which is the gatekeeper for
-`CONFIG_RUST`. It verifies:
+One command decides whether Rust can be enabled at all. It runs a script that checks six things:
 
-1. `rustc` exists and meets the minimum version
-2. `bindgen` exists and meets the minimum version
-3. **`libclang` is findable** — bindgen links against it to parse C headers
-4. `rust-src` is present, so `core` can be built
-5. The target the kernel wants is supported
-6. `rustc`'s bundled LLVM version is compatible with the C compiler's LLVM
+1. Is `rustc` installed, and new enough?
+2. Is `bindgen` installed, and new enough?
+3. Can it find **`libclang`**? (bindgen needs it to read C)
+4. Is `rust-src` there, so `core` can be built?
+5. Does Rust support the target the kernel wants?
+6. Does `rustc`'s built-in LLVM match the C compiler's LLVM?
 
-Point 6 is why `LLVM=1` runs through this whole roadmap. `rustc` has LLVM built in; `clang` is LLVM. If
-you compile the C half with GCC and the Rust half with rustc/LLVM, you have two independent code
-generators making independent decisions about target features, sanitizers, stack protection, and LTO.
-Using LLVM for both keeps one code generator in charge — and it is the configuration the
+That last one is why `LLVM=1` appears on every build command from today on. `rustc` has LLVM inside it,
+and `clang` *is* LLVM. Build the C half with GCC and the Rust half with rustc, and you have two separate
+code generators making separate decisions about optimisation and stack layout. When that goes wrong the
+errors are horrible. Using LLVM for both keeps one thing in charge — and it's the setup the
 Rust-for-Linux developers actually test.
 
-### 7. The Rust build pipeline inside the kernel
+### 7. How Rust and C talk to each other
 
-Yesterday you learned the C pipeline. Rust adds a layer in front of it:
+Three layers, and the direction matters: **Rust wraps C**, not the other way round.
 
 ```text
-C headers (include/)
+C headers (include/)                     the real kernel API
       │
-      ▼  bindgen + libclang
-rust/bindings/bindings_generated.rs      raw, unsafe, machine-generated
-      │
-      ▼  rustc
-rust/kernel/  (the `kernel` crate)       safe abstractions - unsafe lives HERE
+      ▼  bindgen, using libclang to read the C
+rust/bindings/                           machine-written, raw, ALL unsafe
       │
       ▼  rustc
-drivers/, samples/rust/                  leaf code - ideally zero unsafe
+rust/kernel/                             hand-written safe wrappers - unsafe lives HERE
       │
-      ▼  linked with the C objects
+      ▼  rustc
+drivers/, samples/rust/                  your code - ideally zero unsafe
+      │
+      ▼  linked with all the C objects
 vmlinux
 ```
 
-Every arrow is a `RUSTC` line in your build output. And note the direction: **Rust wraps C**, not the
-reverse. The kernel is still a C program that Rust code participates in.
+Each arrow is a `RUSTC` line in your build output.
 
-### 8. Why `CONFIG_RUST` currently refuses to appear
+The layering is the whole design. `rust/bindings/` is generated and unsafe by nature. `rust/kernel/` is
+where humans carefully wrap that in something safe. Your driver then uses only the safe layer — and
+should contain no `unsafe` at all.
 
-You found this yourself on Day 2, in `init/Kconfig`:
+### 8. Why `CONFIG_RUST` is greyed out right now
+
+You found the reason yourself on Day 2, in `init/Kconfig`:
 
 ```
 config RUST
@@ -162,18 +188,19 @@ config RUST
 	...
 ```
 
-`RUST_IS_AVAILABLE` is set by the script in concept 6. With no `rustc` installed, it is false, so the
-option cannot be selected at all — it does not even show as a togglable entry. Today you flip that
-input, and the option becomes available.
+`RUST_IS_AVAILABLE` is set by the script from concept 6. No `rustc` installed means it's false, which
+means the option can't be selected — it doesn't even appear as something you could switch on.
 
-Also worth re-reading those `depends on !X` lines. They are the current, honest list of kernel features
-Rust does not yet coexist with — `RANDSTRUCT`, some `MODVERSIONS` configurations, certain LTO and BTF
-combinations, `KASAN` unless you are using Clang. That is the "coverage is incomplete" caveat expressed
-as code rather than prose.
+Install the toolchain, that flips to true, and the option unlocks. That's the entire mechanism.
 
-### 9. What is in `samples/rust/` — your roadmap, already on disk
+Those `depends on !X` lines below it are worth a second look too. They're an honest list of kernel
+features Rust doesn't get along with yet — `RANDSTRUCT`, certain `MODVERSIONS` setups, some LTO and BTF
+combinations, and `KASAN` unless you're using Clang. That's the "Rust coverage is still incomplete"
+caveat, written as code instead of prose.
 
-Your 7.2.0-rc7 tree ships 16 Rust samples. Look at what they are:
+### 9. `samples/rust/` is the rest of your roadmap, already on disk
+
+Your tree ships 16 working Rust examples. Look at what they actually are:
 
 | Sample | Demonstrates | You meet this in |
 |---|---|---|
@@ -190,27 +217,36 @@ Your 7.2.0-rc7 tree ships 16 Rust samples. Look at what they are:
 | `rust_driver_faux.rs`, `rust_driver_auxiliary.rs` | simpler bus types | Month 4 |
 | `rust_soc.rs` | SoC-level driver | Month 5 |
 
-That table is worth sitting with. **The entire first half of this roadmap is present in that directory as
-working reference code.** When you write your PCI driver in Month 4, `rust_driver_pci.rs` is the example
-you will read first. Today you just load the simplest one; over the next five months you will work
-through most of them.
+Sit with that table for a minute. **The first half of this roadmap is already in that folder, as working
+code you can read.** When you write your own PCI driver in Month 4, `rust_driver_pci.rs` is the first
+file you'll open. Today you only load the simplest one — but you'll work through most of these over the
+next five months.
 
-And `rust/kernel/` has **78 modules** — the abstraction layer you will spend 18 months inside.
+And `rust/kernel/` has **78 modules** in it. That's the safe-wrapper layer from concept 7, and it's where
+you'll spend the next 18 months.
 
-### 10. Reading a Rust kernel module
+### 10. What a Rust kernel module looks like
 
-`rust_minimal.rs` is about 30 lines and it will look strange, so know what to expect:
+`rust_minimal.rs` is about 30 lines and it will look odd at first. Here's what to expect:
 
-- **No `main()`.** A module is a library the kernel loads, not a program.
-- **`module! { ... }`** is a macro that generates all the plumbing C expects: the metadata section, the
-  init and exit function pointers, `MODULE_LICENSE`, and so on. In C you would write these by hand.
-- **`init()` returns `Result`.** Failure is a value, not a convention. Return an error and the kernel
-  cleanly refuses to load the module.
-- **`Drop` is the exit path.** Where a C module has an explicit `module_exit()` function, Rust runs your
-  destructor. Yesterday's teardown ordering is enforced by the language.
-- **`#![no_std]` is implied.** No `println!`, no `String` from `std`, no heap unless you ask fallibly.
+**No `main()`.** A module isn't a program you run — it's code the kernel loads into itself. So there's no
+starting point in the usual sense.
 
-You will not fully understand it today. Recognising the shape is the goal.
+**`module! { ... }` does the paperwork.** The kernel expects a pile of boilerplate from every module:
+metadata, a license declaration, pointers to the load and unload functions. In C you write all of that
+by hand. This macro generates it.
+
+**`init()` returns a `Result`.** Loading can fail, and failure is just a return value. Hand back an error
+and the kernel cleanly refuses to load your module — no half-loaded state.
+
+**`Drop` is the unload path.** A C module needs an explicit exit function. In Rust, unloading runs your
+destructor, so cleanup happens automatically and in the right order. That teardown discipline you'd have
+to maintain by hand in C is enforced by the language.
+
+**`no_std` applies.** No `println!`, no `std::String`, and memory allocation is something you ask for and
+might be refused.
+
+You won't fully understand it today, and you don't need to. Recognising the *shape* is the goal.
 
 ---
 
