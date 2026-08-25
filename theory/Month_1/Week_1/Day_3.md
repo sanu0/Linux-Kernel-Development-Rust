@@ -471,6 +471,159 @@ Three things I saw scroll past that I did not recognise, and want to look up:
 
 ---
 
+## 📖 The Whole Day As A Story (read this first on revision)
+
+*Plain words, no jargon. If you only re-read one section months from now, make it this one.*
+
+### What we were trying to do
+
+Yesterday we compiled a kernel. Today's question was simple: **does it actually run, and can we make
+testing it fast?**
+
+### 1. We got two tools
+
+**QEMU** creates a fake computer — fake CPU, fake memory, fake serial cable. Our kernel can boot on it,
+and if it crashes, nothing real breaks.
+
+**virtme-ng** (`vng`) is a helper that runs QEMU *for* us with much better settings. Both came from
+`apt`, because `pip` refused to install into Ubuntu's Python.
+
+### 2. We booted the kernel by hand, and it died
+
+We typed a long QEMU command: give it 2 GB of RAM, 4 CPUs, this kernel file, and send messages to the
+terminal. Then it crashed:
+
+```text
+Kernel panic - not syncing: VFS: Unable to mount root fs
+```
+
+### 3. The crash was the good news
+
+The crash happened at **1.7 seconds**, at the very *last* step of starting up. Everything before it had
+worked perfectly — memory, CPUs, the scheduler, all the drivers.
+
+A kernel's final job is to start the first real program, and that program lives on a disk. **We gave it
+no disk.** So it had nowhere to go and stopped.
+
+Think of testing a rebuilt car engine on a stand. It starts, it idles, it revs — but you never attached
+wheels, so the car doesn't move. "Car didn't move" isn't an engine problem. The engine passed.
+
+### 4. Two things were missing, and we fixed both
+
+To boot properly, the kernel needed a filesystem. That took two separate fixes:
+
+- **`vng --kconfig`** turned on some kernel options (virtio, 9p) and then **`make -j18`** rebuilt.
+  This gave the kernel the *ability* to use a filesystem shared from outside.
+- **`vng`** then booted it while *offering* that filesystem.
+
+Both halves are needed. A kernel able to accept an offer that nobody makes still panics. An offer made
+to a kernel that can't understand it is ignored.
+
+That rebuild took **5 minutes** rather than 30 seconds, because changing the config invalidates almost
+the whole tree. One-time cost.
+
+### 5. It worked, and we got a shell
+
+```text
+ksanu@virtme-ng:~/LKD_RUST/kernel/linux$
+```
+
+The hostname changed from `NV-D8M4FB4` to `virtme-ng`. **That prompt is how you know which machine you
+are talking to.** We were now inside an operating system we compiled ourselves.
+
+### 6. The thing that confused us most
+
+**`vng` does not replace QEMU — it runs QEMU for you.**
+
+Both boots used the same program. The difference was the arguments:
+
+| | typed by hand | what `vng` ran |
+|---|---|---|
+| the kernel | ✓ | ✓ |
+| a filesystem | **nothing** | your whole WSL filesystem |
+| outcome | panic | a shell |
+
+It's like `docker run`, which quietly uses Linux features you never type yourself. So we never stopped
+using QEMU — we stopped hand-writing its arguments.
+
+### 7. Three commands, three different jobs
+
+The other easy thing to blur. Only the last one starts a virtual machine:
+
+| Command | Job | Starts a VM? |
+|---|---|---|
+| `vng --kconfig` | change settings | no |
+| `make -j18` | compile | no |
+| `vng` | **boot it** | **yes** |
+
+### 8. Why the guest shows your own files
+
+That felt wrong, but it's the entire point. Normally you'd build a disk image and copy files into it
+every single time you wanted to test something. virtme-ng skips that by sharing your real filesystem
+into the guest.
+
+That's why your kernel tree was already there, and why `vng --exec './test.sh'` just works — same file,
+same disk, nothing copied.
+
+**It is read-only by default**, so you cannot damage your real files from inside the guest.
+`/tmp` and `/etc` get temporary in-memory copies. Only `--rw` makes it writable, and virtme-ng warns
+you about that flag for good reason.
+
+### 9. How deep the nesting goes
+
+```text
+Windows                 physical machine
+ └─ WSL2                a VM (Hyper-V)          ← layer 1
+     └─ vng guest       a VM (QEMU + KVM)       ← layer 2, your kernel
+         └─ vng again   would be layer 3        ← this failed: only 1 GB of RAM in the guest
+```
+
+Running a VM inside WSL2 is *already* nested virtualization. That's why Day 1 needed
+`nestedVirtualization=true`. Going one layer deeper ran out of memory — and if you ever accidentally do
+it again, the prompt will tell you.
+
+### 10. Why `vmlinux` ballooned to 353 MB
+
+`vng --kconfig` also switched on **debug info**, which is 300 MB of mapping from machine code back to
+source lines, variable names, and types. That's a good thing: it's what makes crash reports readable and
+gdb usable from Day 12.
+
+Note that `bzImage` stayed **13 MB**. Debug info is stripped before compression — `vmlinux` is for *you*,
+`bzImage` is for the *machine*.
+
+### 11. One rule about config
+
+`make defconfig` means **"factory reset my settings."** You run it once at the very beginning. Running it
+again would have wiped the virtio options and quietly broken the boot loop.
+
+To *change* a setting, edit the existing config instead — `scripts/config --enable X`, then
+`make olddefconfig`. Day 4 does exactly this for Rust.
+
+### If you remember only four things
+
+1. **`vng` is QEMU with good arguments.** Not a different tool.
+2. **Config, build, and boot are three separate steps.** Only `vng` boots.
+3. **Check the hostname in your prompt** to know which machine you are on. `Ctrl-D` gets you out.
+4. **A panic at the end of boot is a pass.** Real failures happen early, or hang with no message.
+
+### The commands, in order
+
+```bash
+sudo apt install -y qemu-system-x86 qemu-utils virtme-ng   # tools
+
+cd "$LINUX_TREE"
+qemu-system-x86_64 -enable-kvm -m 2G -smp 4 \
+  -kernel arch/x86/boot/bzImage \
+  -append "console=ttyS0 panic=-1" -nographic -no-reboot   # by hand -> panics, as intended
+
+vng --kconfig                # add virtio/9p options to .config
+make -j"$(nproc)"            # rebuild (~5 min, one-time)
+vng                          # boot -> a shell inside your kernel.  Ctrl-D to leave
+vng --exec 'uname -r'        # one command in the guest, then straight back
+```
+
+---
+
 **Next:** M1W1D4 — The Rust Toolchain. You get `make LLVM=1 rustavailable` to say yes, enable
 `CONFIG_RUST`, and load your first Rust kernel module. Everything so far has been C; tomorrow the
 roadmap's actual subject begins.
