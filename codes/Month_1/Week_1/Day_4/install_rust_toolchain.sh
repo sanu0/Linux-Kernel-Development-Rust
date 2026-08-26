@@ -50,16 +50,42 @@ if ! grep -q '.cargo/env' "$HOME/.bashrc" 2>/dev/null; then
 fi
 
 say "Toolchain + components"
-if [ "$USE_LATEST" = 1 ]; then TC=stable; else TC="$RUSTC_WANT"; fi
-echo "  target toolchain: $TC"
-rustup toolchain install "$TC"
-# rust-src is not optional: the kernel builds core and alloc FROM SOURCE for its own
-# custom target, because no prebuilt core exists for "x86_64 kernel with these flags".
-rustup component add rust-src rustfmt clippy --toolchain "$TC"
 
-# Pin per-tree so a later global toolchain change cannot break this kernel build.
-rustup override set "$TC"
-echo "  pinned $LINUX_TREE to $TC"
+# Compare dotted versions numerically, so 1.10.0 counts as newer than 1.9.0.
+ver_ge() { [ "$(printf '%s\n%s\n' "$2" "$1" | sort -V | head -1)" = "$2" ]; }
+
+HAVE_RUSTC=""
+command -v rustc > /dev/null 2>&1 && HAVE_RUSTC="$(rustc --version | awk '{print $2}')"
+
+# Prefer whatever is already installed if it meets the floor. min-tool-version.sh reports a
+# MINIMUM, and rustup gives you current stable - which is usually well past it. Downloading
+# an old pinned toolchain you do not need is pure cost, and on a slow or corporate network it
+# fails outright with connection timeouts.
+if [ "$USE_LATEST" = 1 ]; then
+  TC=stable
+  echo "  --latest given: using stable"
+  rustup toolchain install stable
+elif [ -n "$HAVE_RUSTC" ] && ver_ge "$HAVE_RUSTC" "$RUSTC_WANT"; then
+  TC=""
+  echo "  rustc $HAVE_RUSTC already meets the floor of $RUSTC_WANT - no download needed"
+else
+  TC="$RUSTC_WANT"
+  echo "  installed rustc (${HAVE_RUSTC:-none}) is below the floor - installing $TC"
+  rustup toolchain install "$TC"
+fi
+
+# rust-src is NOT optional: the kernel builds core and alloc FROM SOURCE for its own custom
+# target, because no prebuilt core exists for "x86_64 kernel with these flags". rustup does
+# not install it by default, so this is usually the only thing actually missing.
+if [ -n "$TC" ]; then
+  rustup component add rust-src rustfmt clippy --toolchain "$TC"
+  # Pin per-tree so a later global toolchain change cannot break this kernel build.
+  rustup override set "$TC"
+  echo "  pinned $LINUX_TREE to $TC"
+else
+  rustup component add rust-src rustfmt clippy
+fi
+
 rustc --version
 cargo --version
 

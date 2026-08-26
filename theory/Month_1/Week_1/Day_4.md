@@ -304,26 +304,52 @@ source "$HOME/.cargo/env"
 grep -q '.cargo/env' ~/.bashrc || echo '. "$HOME/.cargo/env"' >> ~/.bashrc
 ```
 
-Install the version your tree names, plus the components:
+**First check whether you already have what you need.** The `rustup` installer gives you the current
+stable toolchain, and `min-tool-version.sh` reports a **minimum** — so stable is very often new enough
+already:
 
 ```bash
 cd "$LINUX_TREE"
-RUSTC_VER="$(scripts/min-tool-version.sh rustc)"     # 1.85.0
-echo "installing rustc $RUSTC_VER"
+rustc --version                              # what you have
+scripts/min-tool-version.sh rustc            # the floor: 1.85.0
+```
 
+If your version is at or above the floor, **you do not need to download anything else.** Just add the
+missing components to the toolchain you have:
+
+```bash
+rustup component add rust-src rustfmt clippy
+```
+
+`rust-src` is the one that matters — see concept 4. `rustup` ships `rustc`, `cargo`, `clippy`, and
+`rustfmt` by default but **not** `rust-src`, so this single command is usually the whole job.
+
+<details>
+<summary><b>Only if your stable is older than the floor</b> — install the exact version</summary>
+
+```bash
+RUSTC_VER="$(scripts/min-tool-version.sh rustc)"
 rustup toolchain install "$RUSTC_VER"
 rustup component add rust-src rustfmt clippy --toolchain "$RUSTC_VER"
 
-# Pin this tree to that toolchain. Now every rustc invocation here uses it,
-# regardless of what your global default becomes later.
+# Pin this tree to that toolchain, so a later global change cannot break this build.
 rustup override set "$RUSTC_VER"
+```
 
+</details>
+
+```bash
 rustc --version && cargo --version
 ```
 
-> **Minimum vs latest.** `1.85.0` is the floor, and a newer stable will often work. Start with the floor
-> because it is the version guaranteed to be tested against your tree. If you later want newer, change
-> it and let `rustavailable` arbitrate — it will tell you plainly if the answer is no.
+> **Do not download an old toolchain you do not need.** An earlier version of this document told you to
+> install exactly `1.85.0`, and on a slow or corporate network that produces a wall of
+> `Connection timed out` errors — for a toolchain that was never required, because stable already
+> exceeded the minimum. `rustavailable` is the only thing whose opinion counts here: if it does not
+> complain about your `rustc` version, your `rustc` version is fine.
+>
+> **Verified on this tree:** rustc **1.98.0** against a floor of 1.85.0 passes the version check
+> cleanly. The only thing `rustavailable` asked for was `bindgen`.
 
 ### Phase 2 — Install bindgen
 
