@@ -1,204 +1,383 @@
-# Activity — Hello World From Inside Your Own Rust Kernel
+# Activity — Write Your Own Rust Kernel Module, By Hand
 
-> **Goal:** get *your own* Rust code — not a copied sample — printing from inside a kernel you
-> compiled, two different ways, and understand why the two ways differ.
+> **Goal:** you type a Rust kernel module in vim, compile it into a kernel you built, boot it, and
+> read your own words in `dmesg`. Then you make it greet you during boot instead.
 >
-> **When:** after Day 4. Day 4 gets `CONFIG_RUST=y` and proves the upstream samples load. This
-> activity is the first code in this repo that is yours.
+> **When:** after Day 4 (`CONFIG_RUST=y` and the upstream samples load).
 >
-> **Time:** 30 minutes of typing, plus two kernel builds. The first Rust build is the slow one.
+> **Time:** about 90 minutes, in four stages. **Stage 1 alone is ~20 minutes and ends with your code
+> running** — do that much even if you stop there.
 
 ---
 
 ## Contents
 
-- [The Two Things We Are Doing](#the-two-things-we-are-doing)
-- [Files This Activity Uses](#files-this-activity-uses)
-- [Two Gotchas, Verified](#two-gotchas-verified)
-- [Part 0 — Prerequisites](#part-0--prerequisites)
-- [Part 1 — Build It As A Module](#part-1--build-it-as-a-module)
-- [Part 2 — Build It Into The Kernel](#part-2--build-it-into-the-kernel)
+- [How This Activity Works](#how-this-activity-works)
+- [Part 0 — Check You Are Ready](#part-0--check-you-are-ready)
+- [Stage 1 — The Smallest Module That Works](#stage-1--the-smallest-module-that-works)
+- [Stage 2 — Take Input From Outside](#stage-2--take-input-from-outside)
+- [Stage 3 — Allocate Memory, And Give It Back](#stage-3--allocate-memory-and-give-it-back)
+- [Stage 4 — Put It Inside The Kernel Itself](#stage-4--put-it-inside-the-kernel-itself)
+- [Stage 5 — Save Your Work](#stage-5--save-your-work)
+- [Break It On Purpose](#break-it-on-purpose)
 - [Side By Side](#side-by-side)
-- [Experiments Worth Running](#experiments-worth-running)
 - [Putting The Tree Back](#putting-the-tree-back)
 - [Journal](#journal)
 - [Troubleshooting](#troubleshooting)
 
 ---
 
-## The Two Things We Are Doing
+## How This Activity Works
 
-The same single source file gets built two ways, and the difference is the entire lesson.
+**You type every line yourself.** Not because typing is magic, but because the module grows in four
+stages and each stage adds exactly one idea. You build and boot after every stage, so when something
+breaks you know precisely which five lines caused it. That is the actual skill.
 
-**Part 1 — as a loadable module (`=m`).** Kbuild produces `hello_rust.ko`, a separate file. Nothing
-happens until you `insmod` it. `init` runs on load, `Drop` runs on `rmmod`. This is the normal
-development loop, because you can load and unload repeatedly without rebooting.
+**You edit directly in the kernel tree**, at `$LINUX_TREE/samples/rust/hello_rust.rs`, not in the
+repo. Three reasons:
 
-**Part 2 — compiled into the kernel (`=y`).** The code goes *inside* `vmlinux`. There is no `.ko`
-at all. `init` runs during boot as an initcall, so the greeting appears in the boot log before you
-ever reach a shell — this is what you were picturing when you asked about "a custom Rust kernel that
-prints hello world". And because built-in code can never be unloaded, **`Drop` never runs.**
+- `make` picks it up immediately — no copy step between editing and building
+- vim on ext4 gives you LF line endings for free, so the CRLF problem never arises
+- it is what `codes/README.md` recommends for kernel Rust, because out-of-tree Rust module support
+  is still thin
 
-The module reports which one it is at runtime, using the `!cfg!(MODULE)` trick from
-`rust_minimal.rs`. `MODULE` is a compile-time flag the build system defines only for loadable
-modules, so the compiler folds it to a constant — zero runtime cost, and the same source tells you
-how it was built.
+The repo copy comes at the end, in [Stage 5](#stage-5--save-your-work). The kernel tree is
+disposable; the repo is the source of record.
 
----
-
-## Files This Activity Uses
-
-Already created for you, under version control in the repo:
-
-| File | Role |
-|---|---|
-| `codes/Month_1/Week_1/Day_4/hello_rust.rs` | The module. Yours to edit — start by putting your real name in `authors` |
-| `codes/Month_1/Week_1/Day_4/install_hello.sh` | Copies it into the tree and adds the Kconfig + Makefile entries. Idempotent |
-
-Kernel Rust has thin support for out-of-tree modules, so we develop **in-tree**: the source goes
-into `samples/rust/` and Kbuild treats it exactly like an upstream sample. This is what
-`codes/README.md` recommends, and it is why `install_hello.sh` exists — it touches three files
-inside `$LINUX_TREE`:
-
-```text
-samples/rust/hello_rust.rs   copied in, CRLF stripped
-samples/rust/Kconfig         one new `config SAMPLE_RUST_HELLO` block
-samples/rust/Makefile        one new obj-$(CONFIG_SAMPLE_RUST_HELLO) line
-```
-
-Those live in the kernel tree, which is not version controlled by you — so
-[Putting The Tree Back](#putting-the-tree-back) matters.
+> **There is a finished version** at `codes/Month_1/Week_1/Day_4/hello_rust.rs`. **Do not open it
+> yet.** Use it at the end to diff against what you wrote — the differences are the interesting part.
+> Reading it first turns a build into a copy.
 
 ---
 
-## Two Gotchas, Verified
+## Part 0 — Check You Are Ready
 
-Both of these were confirmed on this machine, not guessed. They will waste your evening if you skip
-them.
-
-**1. Run everything from an interactive shell.** Ubuntu's default `~/.bashrc` returns early for
-non-interactive shells, so `$LINUX_TREE` and `$LKDRUST_REPO` are simply *not set* if you run these
-commands from an editor task, a script, or `bash -lc`. `sync_from_repo.sh` fails immediately with
-`LKDRUST_REPO: Set LKDRUST_REPO to your LKD_RUST folder`. Open a normal terminal and check first:
+Open a normal terminal. Not an editor task — Ubuntu's `~/.bashrc` returns early for non-interactive
+shells, so your environment variables will be missing.
 
 ```bash
-echo "$LINUX_TREE"
-echo "$LKDRUST_REPO"
+echo "$LINUX_TREE"          # must print a path
+cd "$LINUX_TREE"
+grep '^CONFIG_RUST=y' .config
 ```
 
-Both must print a path. If they are empty, open a new terminal.
+That `grep` must print `CONFIG_RUST=y`. If it prints nothing, Day 4 is not finished — run
+`install_rust_toolchain.sh` and `enable_rust_config.sh` first, and come back.
 
-**2. Sync before you run anything.** The repo is on NTFS, so these files have Windows CRLF line
-endings, and a shell script with `\r` at the end of every line does not merely misbehave — it fails
-to parse:
+Then confirm the lab still works end to end, using a module you did not write:
 
-```text
-install_hello.sh: line 27: syntax error near unexpected token `$'do\r''
+```bash
+vng --exec 'insmod samples/rust/rust_minimal.ko; dmesg | tail -5; rmmod rust_minimal'
 ```
 
-`sync_from_repo.sh` strips CRLF and restores the executable bit, which is exactly why it exists.
-**Always run the synced copy under `~/LKD_RUST/codes/`, never the one on `/mnt/c/`.**
+If that prints the sample's messages, everything below is your code's fault when it breaks. Worth
+twenty seconds.
 
 ---
 
-## Part 0 — Prerequisites
+## Stage 1 — The Smallest Module That Works
 
-```bash
-# Pull the repo's code into WSL, normalising line endings on the way in
-bash ~/LKD_RUST/codes/sync_from_repo.sh
-```
-
-Then Day 4 proper, if you have not done it yet:
-
-```bash
-# Installs the toolchain the TREE asks for, adds rust-src and bindgen, pins the
-# toolchain to this tree, and ends with the gate: make LLVM=1 rustavailable
-bash ~/LKD_RUST/codes/Month_1/Week_1/Day_4/install_rust_toolchain.sh
-
-# Turns on CONFIG_RUST + the samples, without destroying Day 3's virtio/9p options
-bash ~/LKD_RUST/codes/Month_1/Week_1/Day_4/enable_rust_config.sh
-```
-
-Build, and prove an upstream sample loads before introducing your own code — one variable at a time:
+### 1a. Create the file
 
 ```bash
 cd "$LINUX_TREE"
-time make LLVM=1 -j"$(nproc)"
-
-vng --exec 'insmod samples/rust/rust_minimal.ko; dmesg | tail -8; rmmod rust_minimal'
+vim samples/rust/hello_rust.rs
 ```
 
-If `rust_minimal` loads and prints, the lab is good and anything that breaks from here is *your*
-code. That is worth the extra five minutes.
+Type this. It is 18 lines and every one earns its place:
 
-> **Expect this build to be slow.** It is the first one compiling `core`, `alloc`, and the `kernel`
-> crate from source, plus running `bindgen` over the C headers. Watch for `RUSTC L core.o` and
-> `BINDGEN rust/bindings/bindings_generated.rs` — lines you have never seen before.
+```rust
+// SPDX-License-Identifier: GPL-2.0
 
----
+//! My first Rust kernel module.
 
-## Part 1 — Build It As A Module
+use kernel::prelude::*;
+
+module! {
+    type: HelloRust,
+    name: "hello_rust",
+    authors: ["Your Name"],
+    description: "My first Rust kernel module",
+    license: "GPL",
+}
+
+struct HelloRust;
+
+impl kernel::Module for HelloRust {
+    fn init(_module: &'static ThisModule) -> Result<Self> {
+        pr_info!("Hello, World! From Rust, in ring 0.\n");
+        Ok(HelloRust)
+    }
+}
+```
+
+What you just wrote, in the order it matters:
+
+- **`// SPDX-License-Identifier`** — mandatory first line in every kernel source file. `checkpatch.pl`
+  rejects a patch without it.
+- **`//!`** — an *inner* doc comment, documenting the file itself. Three slashes would document the
+  next item instead.
+- **`use kernel::prelude::*`** — there is no `std` here. This is where `module!`, `pr_info!`, and
+  `Result` come from.
+- **`module!`** — a macro that generates the C glue: the `init_module` symbol `insmod` looks for, and
+  the `.modinfo` section `modinfo` reads. Without it the kernel has no way to find your code.
+- **`license: "GPL"`** — load-bearing, not paperwork. Any other value and most of the kernel API
+  becomes unavailable to you.
+- **`struct HelloRust;`** — a unit struct, no fields yet. `samples/rust/rust_print_main.rs` does
+  exactly this, so you are in good company.
+- **`Result<Self>`** — the *kernel's* Result. Returning `Err` makes `insmod` fail with that errno.
+- **`\n`** — the kernel log does not add one. Leave it off and your next message continues the same
+  line.
+
+Save and quit: `:wq`
+
+### 1b. Tell Kconfig your module exists
 
 ```bash
-bash ~/LKD_RUST/codes/Month_1/Week_1/Day_4/install_hello.sh --module
+vim samples/rust/Kconfig
+```
 
-cd "$LINUX_TREE"
+Find the last line, `endif # SAMPLES_RUST`, and insert this **above** it — your entry has to be
+inside the `if SAMPLES_RUST` block or it can never be selected:
+
+```text
+config SAMPLE_RUST_HELLO
+	tristate "My hello world module"
+	help
+	  My first hand-written Rust kernel module.
+
+	  If unsure, say N.
+```
+
+`tristate` is what gives you the three-way choice: `n` (don't build), `m` (loadable module), or `y`
+(compiled into the kernel). Stage 4 is entirely about the difference between the last two.
+
+> **On indentation:** the file uses tabs, so match it. In vim, `Ctrl-V` then `Tab` inserts a literal
+> tab even if you have `expandtab` set. That said, Kconfig parses spaces fine too — do not lose ten
+> minutes here.
+
+### 1c. Tell Kbuild to compile it
+
+```bash
+vim samples/rust/Makefile
+```
+
+Add one line at the end:
+
+```make
+obj-$(CONFIG_SAMPLE_RUST_HELLO)		+= hello_rust.o
+```
+
+Read that as: *if* `CONFIG_SAMPLE_RUST_HELLO` is set, add `hello_rust.o` to the build. This is a
+variable assignment, not a recipe, so spaces are fine here — the tab rule that bites people in
+Makefiles applies to command lines under a target, which this is not.
+
+Note it says `.o`, not `.rs`. Kbuild derives the source name from the object name.
+
+### 1d. Turn it on and build
+
+```bash
+scripts/config --module SAMPLE_RUST_HELLO
+make LLVM=1 olddefconfig
+grep SAMPLE_RUST_HELLO .config
+```
+
+You want `CONFIG_SAMPLE_RUST_HELLO=m`. `scripts/config` only edits text; `olddefconfig` is what makes
+Kconfig re-read your new entry and resolve it. If the symbol vanishes, `CONFIG_SAMPLES_RUST` is off.
+
+```bash
 make LLVM=1 -j"$(nproc)"
 ```
 
-The line to watch for is your own code going through `rustc`:
+Because Day 4 already built this tree, this is incremental — a minute or two, not twenty. Watch for
+your line:
 
 ```text
-RUSTC [M] samples/rust/hello_rust.o
+  RUSTC [M] samples/rust/hello_rust.o
+  LD [M]  samples/rust/hello_rust.ko
 ```
 
-Then load it, read the log, and unload it:
+### 1e. Run it
 
 ```bash
-vng --exec 'insmod samples/rust/hello_rust.ko; dmesg | tail -15; rmmod hello_rust; dmesg | tail -3'
+vng --exec 'insmod samples/rust/hello_rust.ko; dmesg | tail -3; rmmod hello_rust'
 ```
 
-Expected, roughly:
+```text
+hello_rust: Hello, World! From Rust, in ring 0.
+```
+
+**That is your code, in a kernel you compiled, in a VM.** Stop and appreciate it — every remaining
+stage is a variation on this loop.
+
+Also look at what `module!` generated for you:
+
+```bash
+modinfo samples/rust/hello_rust.ko
+```
+
+Every field you typed is in there, plus a `vermagic` string that ties the module to this exact
+kernel build.
+
+---
+
+## Stage 2 — Take Input From Outside
+
+Right now the module does the same thing every time. Let's let the loader choose.
+
+```bash
+vim samples/rust/hello_rust.rs
+```
+
+Add a `params` block inside `module!`, after `license`:
+
+```rust
+    license: "GPL",
+    params: {
+        greetings: i64 {
+            default: 3,
+            description: "How many times to say hello (clamped to 1..=10)",
+        },
+    },
+```
+
+And replace the single `pr_info!` in `init` with:
+
+```rust
+        // Never trust a parameter. This is an i64 from outside; unclamped, a large value
+        // would spin the kernel log for a very long time.
+        let times = (*module_parameters::greetings.value()).clamp(1, 10);
+
+        pr_info!("Hello, World! From Rust, in ring 0.\n");
+        for i in 1..=times {
+            pr_info!("  hello {} of {}\n", i, times);
+        }
+```
+
+Two things worth understanding before you rebuild:
+
+`module_parameters` is a module the `module!` macro generated — you never wrote it. `.value()`
+returns a *reference*, hence the `*`, because for writable parameters the value can change at
+runtime.
+
+The `.clamp(1, 10)` is the habit to build now. Every value that crosses into the kernel from outside
+is untrusted input, and "outside" includes a module parameter.
+
+```bash
+make LLVM=1 -j"$(nproc)"
+vng --exec 'insmod samples/rust/hello_rust.ko; dmesg | tail -6'
+vng --exec 'insmod samples/rust/hello_rust.ko greetings=7; dmesg | tail -10'
+vng --exec 'insmod samples/rust/hello_rust.ko greetings=9999; dmesg | tail -13'
+```
+
+The last one still prints ten. Your clamp works, and you just tested a hostile input path.
+
+---
+
+## Stage 3 — Allocate Memory, And Give It Back
+
+This is the stage that shows you what kernel Rust is actually for.
+
+```bash
+vim samples/rust/hello_rust.rs
+```
+
+Give the struct a field:
+
+```rust
+struct HelloRust {
+    greeted: KVec<i32>,
+}
+```
+
+Build the vector inside the loop, and return it:
+
+```rust
+        let mut greeted = KVec::new();
+        for i in 1..=times {
+            pr_info!("  hello {} of {}\n", i, times);
+            greeted.push(i as i32, GFP_KERNEL)?;
+        }
+
+        pr_info!("recorded {} greetings on the kernel heap\n", greeted.len());
+
+        Ok(HelloRust { greeted })
+```
+
+Then add this at the end of the file, after the closing brace of the `impl kernel::Module` block:
+
+```rust
+impl Drop for HelloRust {
+    fn drop(&mut self) {
+        pr_info!("goodbye — greetings I recorded: {:?}\n", self.greeted);
+    }
+}
+```
+
+**Look hard at `greeted.push(i as i32, GFP_KERNEL)?`.** In userspace it would be `greeted.push(i)`.
+Two things were added:
+
+- **`GFP_KERNEL`** tells the allocator it is allowed to sleep waiting for memory. True here, because
+  module init runs in normal process context. In an interrupt handler you would need `GFP_ATOMIC`,
+  and getting it wrong is a real bug. There is no default because there is no safe default.
+- **`?`** exists because kernel allocations genuinely fail and the kernel cannot respond by aborting.
+  On failure this returns `Err(ENOMEM)` and `insmod` fails cleanly. Nothing panics — and kernel Rust
+  must never panic.
+
+And notice what is **not** in your `Drop`: any `kfree`. The `KVec` is released because the struct is
+dropped. In C you would write that free by hand in the exit path, and forgetting it is one of the
+most common kernel leaks there is.
+
+```bash
+make LLVM=1 -j"$(nproc)"
+vng --exec 'insmod samples/rust/hello_rust.ko; dmesg | tail -6; rmmod hello_rust; dmesg | tail -2'
+```
 
 ```text
-hello_rust: =====================================
-hello_rust:   Hello, World! From Rust, in ring 0.
-hello_rust: =====================================
-hello_rust: running as: a loadable module (.ko)
-hello_rust:   hello 1 of 3
-hello_rust:   hello 2 of 3
-hello_rust:   hello 3 of 3
 hello_rust: recorded 3 greetings on the kernel heap
-```
-
-and on unload:
-
-```text
 hello_rust: goodbye — greetings I recorded: [1, 2, 3]
-hello_rust: hello_rust unloaded; the allocation above is freed as this struct drops
 ```
 
-**That second block is the part to appreciate.** You never wrote a `kfree`. The `KVec` was released
-because the struct was dropped, and the ordering was correct because the compiler guaranteed it.
-The C equivalent needs an explicit free in the exit path, and forgetting it is a classic leak.
+Reading `self.greeted` inside `drop` is safe, and it is worth knowing why: the body of `drop` runs
+*before* the struct's fields are dropped.
 
 ---
 
-## Part 2 — Build It Into The Kernel
+## Stage 4 — Put It Inside The Kernel Itself
 
-Same source, one config change:
+So far you have built a `.ko` you load by hand. Now compile the identical source *into* `vmlinux`, so
+it runs during boot.
+
+First, make the module able to tell which it is. Add this to `init`, right after the `let times` line:
+
+```rust
+        pr_info!(
+            "running as: {}\n",
+            if !cfg!(MODULE) {
+                "compiled into vmlinux (this line printed during boot)"
+            } else {
+                "a loadable module (.ko)"
+            }
+        );
+```
+
+`cfg!(MODULE)` is a **compile-time** constant — the build system defines `MODULE` only for loadable
+modules, and the compiler folds this to a literal `true` or `false`. Zero runtime cost, and the same
+source file reports two different answers depending on how it was built.
+
+Now change one config value — no other code changes:
 
 ```bash
-bash ~/LKD_RUST/codes/Month_1/Week_1/Day_4/install_hello.sh --builtin
-
-cd "$LINUX_TREE"
+scripts/config --enable SAMPLE_RUST_HELLO      # =y instead of =m
+make LLVM=1 olddefconfig
+grep SAMPLE_RUST_HELLO .config                 # expect =y
 make LLVM=1 -j"$(nproc)"
 ```
 
-Note the build line changes from `[M]` to no marker, because it is no longer a module:
+Notice the build line lost its `[M]`, because it is no longer a module:
 
 ```text
-RUSTC   samples/rust/hello_rust.o
+  RUSTC   samples/rust/hello_rust.o
 ```
 
 Now **do not load anything.** Just boot:
@@ -207,21 +386,90 @@ Now **do not load anything.** Just boot:
 vng --exec 'dmesg | grep -A6 "Hello, World"'
 ```
 
-Your greeting is already in the boot log. Nothing insmod'd it — it ran as an initcall while the
-kernel was bringing itself up. This is, precisely, a custom Rust kernel that says hello on boot.
+Your greeting is already there. Nothing insmod'd it — it ran as an initcall while the kernel brought
+itself up. **This is a custom Rust kernel that says hello on boot**, which is what you asked for at
+the start.
 
-Two things to confirm, because they are the payoff:
+Three things to confirm, because they are the payoff:
 
 ```bash
-# cfg!(MODULE) is now false, so the module knows it is built in
+# cfg!(MODULE) is false now
 vng --exec 'dmesg | grep "running as:"'
 
-# It is not a module at all, so there is nothing to unload
+# there is no module, so there is nothing to unload
 vng --exec 'lsmod | grep hello_rust || echo "not a module — it is part of the kernel"'
 
-# And therefore no goodbye, ever
+# and therefore no goodbye, ever
 vng --exec 'dmesg | grep goodbye || echo "no Drop: built-in code is never unloaded"'
 ```
+
+That last one is the real lesson. **Built-in code is never unloaded, so its `Drop` never runs.** Sit
+with that for a moment — it means a built-in driver's cleanup path is dead code, and any resource it
+holds is held until power off.
+
+The parameter moved too. Built in, there is no `insmod` to pass it to, so it comes from the kernel
+command line under a namespaced name:
+
+```bash
+vng -a hello_rust.greetings=8 --exec 'dmesg | grep -A10 "Hello, World"'
+```
+
+---
+
+## Stage 5 — Save Your Work
+
+Your module currently exists only in a disposable kernel tree. Put it under version control.
+
+**Diff against the reference first**, while both still exist — this is the payoff for having typed it
+yourself:
+
+```bash
+diff "$LINUX_TREE/samples/rust/hello_rust.rs" \
+     "$LKDRUST_REPO/codes/Month_1/Week_1/Day_4/hello_rust.rs"
+```
+
+Read every difference and decide, for each one, whether yours or the reference's is better. Some of
+mine are just wordier comments. If you find something you did better, keep yours — that judgement is
+the point.
+
+Then make your version the one of record:
+
+```bash
+cp "$LINUX_TREE/samples/rust/hello_rust.rs" \
+   "$LKDRUST_REPO/codes/Month_1/Week_1/Day_4/hello_rust.rs"
+
+cd "$LKDRUST_REPO"
+git diff codes/Month_1/Week_1/Day_4/hello_rust.rs    # exactly what you changed
+```
+
+Then commit. This is the first kernel code you wrote yourself; the message should say so. The old
+version is not lost either way — it is in git history.
+
+`install_hello.sh` in that same directory automates everything you just did by hand — the copy, the
+Kconfig block, the Makefile line, the config switch. Now that you have done it manually once, use the
+script whenever you want to re-apply your module to a fresh tree.
+
+---
+
+## Break It On Purpose
+
+Every one of these teaches something a success path cannot. Do at least two.
+
+**Make the license wrong.** Change `license: "GPL"` to `"Proprietary"`, rebuild as `=m`, and load it.
+The failure tells you what that field actually does.
+
+**Return an error from init.** Put `return Err(EINVAL);` as the first line of `init`. Rebuild, load,
+and watch `insmod` fail with that exact errno. This is how a real driver refuses to probe.
+
+**Panic on purpose.** Add `let x: Option<i32> = None; x.unwrap();` to `init`. It *compiles* — the
+compiler will not save you. Load it and watch what a Rust panic does inside a kernel. Then delete it,
+and re-read why `UPSTREAM.md` calls `unwrap()` an instant reject in review.
+
+**Forget the newline.** Drop the `\n` from one `pr_info!` and look at the mangled log output.
+
+**Load the wrong build.** Keep the old `.ko`, rebuild the kernel with any change, boot the new one,
+and try to `insmod` the stale module. The `Invalid module format` error and the `vermagic` mismatch
+behind it will find you again for the next eighteen months — meet it now.
 
 ---
 
@@ -229,63 +477,24 @@ vng --exec 'dmesg | grep goodbye || echo "no Drop: built-in code is never unload
 
 | | `=m` (module) | `=y` (built-in) |
 |---|---|---|
-| Artifact produced | `samples/rust/hello_rust.ko` | inside `vmlinux`, no separate file |
-| When `init` runs | on `insmod` | during boot, as an initcall |
-| When `Drop` runs | on `rmmod` | **never** |
-| Shows in `lsmod` | yes | no |
-| `!cfg!(MODULE)` reports | `a loadable module (.ko)` | `compiled into vmlinux` |
+| Artifact | `samples/rust/hello_rust.ko` | inside `vmlinux`, no separate file |
+| Build line | `RUSTC [M] ...` | `RUSTC ...` |
+| `init` runs | on `insmod` | during boot, as an initcall |
+| `Drop` runs | on `rmmod` | **never** |
+| In `lsmod` | yes | no |
 | Parameter name | `greetings` | `hello_rust.greetings` |
-| How to set the parameter | `insmod hello_rust.ko greetings=5` | kernel command line |
-| Iteration speed | fast — reload without rebooting | slow — rebuild and reboot each time |
-
-That parameter row is a real detail, not trivia: the `module!` macro registers the parameter under a
-different name depending on how you built it, because a built-in parameter has to be reachable from
-the kernel command line where names must be globally unique.
-
----
-
-## Experiments Worth Running
-
-**The parameter, and the clamp.** `hello_rust.rs` clamps `greetings` to `1..=10`, because an
-unclamped value taken from outside would drive the loop into an allocation storm. Prove it:
-
-```bash
-# module build
-vng --exec 'insmod samples/rust/hello_rust.ko greetings=7;    dmesg | tail -14'
-vng --exec 'insmod samples/rust/hello_rust.ko greetings=9999; dmesg | tail -14'   # still 10
-vng --exec 'insmod samples/rust/hello_rust.ko greetings=-5;   dmesg | tail -14'   # still 1
-```
-
-For the built-in build, the parameter comes from the kernel command line instead — `vng -a` appends
-boot options:
-
-```bash
-vng -a hello_rust.greetings=8 --exec 'dmesg | grep -A10 "Hello, World"'
-```
-
-**Read the metadata you declared.** Everything in the `module!` block ends up in the ELF:
-
-```bash
-modinfo samples/rust/hello_rust.ko
-```
-
-**Break it on purpose, and read the error.** Change `license: "GPL"` to `"Proprietary"`, rebuild,
-and try to load it. The failure teaches you what that field actually does. Then put it back.
-
-**Prove the toolchain is fussy.** In `init`, add `let x: Option<i32> = None; x.unwrap();` and
-rebuild. It compiles. Load it and watch what a Rust panic does to a kernel. Then delete it, and
-re-read why `UPSTREAM.md` calls `unwrap()` an instant reject.
+| How to set it | `insmod hello_rust.ko greetings=5` | `vng -a hello_rust.greetings=5` |
+| Iteration speed | fast — reload, no reboot | slow — rebuild and reboot |
 
 ---
 
 ## Putting The Tree Back
 
-`install_hello.sh` modified three files in `$LINUX_TREE`, which is upstream Linux and not yours.
-Before you `git pull` the kernel or start Day 5, get it clean:
+You edited three files in upstream Linux. Before Day 5 or any `git pull` of the kernel, get it clean:
 
 ```bash
 cd "$LINUX_TREE"
-git status --short                 # see exactly what you changed
+git status --short                 # exactly what you touched
 
 git checkout samples/rust/Kconfig samples/rust/Makefile
 rm -f samples/rust/hello_rust.rs
@@ -293,38 +502,28 @@ scripts/config --disable SAMPLE_RUST_HELLO
 make LLVM=1 olddefconfig
 ```
 
-Your source survives this, because the copy of record lives in the repo at
-`codes/Month_1/Week_1/Day_4/hello_rust.rs`. Re-running `install_hello.sh` puts it back whenever you
-want it. **That asymmetry is the workflow:** the kernel tree is disposable, the repo is not.
-
-If you edited `hello_rust.rs` inside the tree rather than in the repo, push it back before you clean:
-
-```bash
-cp "$LINUX_TREE/samples/rust/hello_rust.rs" ~/LKD_RUST/codes/Month_1/Week_1/Day_4/
-bash ~/LKD_RUST/codes/sync_to_repo.sh
-```
+This is safe **only because you did Stage 5 first.** Your source lives in the repo now, and
+`install_hello.sh` puts it back on demand. That asymmetry is the workflow: the kernel tree is
+scratch space, the repo is what you keep.
 
 ---
 
 ## Journal
 
-Worth recording in `journal/`, and the version numbers in `_internal/SETUP_LOG.md`:
+Record in `journal/`, and the versions in `_internal/SETUP_LOG.md`:
 
-- Wall time for the first Rust-enabled build, and for the incremental rebuild after only
-  `hello_rust.rs` changed. The ratio is what tells you whether your loop is healthy
-- The exact `rustc` and `bindgen` versions that worked
-- The full `dmesg` output from both variants, pasted, not summarised
-- Every error you hit and what fixed it
+- Incremental rebuild time after changing only `hello_rust.rs`. This is your real loop speed
+- The `dmesg` output from Stages 3 and 4, pasted whole
+- Every error you hit and what fixed it — especially the deliberate ones
 
-Then answer these in your own words, without notes:
+Then answer these without looking anything up:
 
-1. Why does `Drop` never run in the built-in build? What would it even mean for it to run?
-2. `cfg!(MODULE)` is evaluated at compile time. So how can one source file report two different
-   answers?
-3. Why does `push` take `GFP_KERNEL` when `Vec::push` in userspace takes nothing?
-4. You never wrote a `kfree`. What exactly guarantees the allocation is released, and what
-   guarantees it happens *after* the `goodbye` line is printed?
-5. Why did we develop in-tree instead of writing an out-of-tree `Makefile`?
+1. Why does `Drop` never run in the built-in build? What would it even *mean* for it to run?
+2. `cfg!(MODULE)` is evaluated at compile time. So how does one source file report two answers?
+3. Why does `push` need `GFP_KERNEL` when userspace `Vec::push` needs nothing?
+4. You wrote no `kfree`. What guarantees the memory is freed, and what guarantees it happens *after*
+   the `goodbye` line prints?
+5. What is `vermagic` for, and what would go wrong without it?
 
 ---
 
@@ -332,18 +531,21 @@ Then answer these in your own words, without notes:
 
 | Symptom | Cause | Fix |
 |---|---|---|
-| `syntax error near unexpected token $'do\r'` | Running the `/mnt/c/` copy with CRLF endings | Run `sync_from_repo.sh`, then use the copy under `~/LKD_RUST/codes/` |
-| `LKDRUST_REPO: Set LKDRUST_REPO...` | Non-interactive shell skipped `~/.bashrc` | Use a normal terminal; verify with `echo "$LKDRUST_REPO"` |
-| `install_hello.sh` says `CONFIG_RUST is not enabled` | Day 4 not finished | Run `install_rust_toolchain.sh`, then `enable_rust_config.sh` |
-| `CONFIG_SAMPLE_RUST_HELLO did not survive olddefconfig` | `CONFIG_SAMPLES_RUST` is off, so the whole `if` block is unreachable | `scripts/config --enable SAMPLES_RUST && make LLVM=1 olddefconfig` |
-| Build says nothing about `hello_rust` | Makefile line missing, or config is `n` | `grep HELLO samples/rust/Makefile .config` |
-| `insmod: ERROR: could not insert module: Invalid module format` | The `.ko` was built against a different tree than you booted | Rebuild and re-run `vng` from the same tree; compare `modinfo` vermagic to `uname -r` |
-| `insmod` says `Operation not permitted` after a license edit | Non-GPL modules cannot use `EXPORT_SYMBOL_GPL` symbols | Set `license: "GPL"` back |
-| `vng` hangs or shows nothing | It wants a real TTY | Run it from your own terminal, not an editor task |
-| Greeting count ignores your parameter | You are on the built-in build, where the name is `hello_rust.greetings` | Use `vng -a hello_rust.greetings=N` |
+| `$LINUX_TREE` is empty | Non-interactive shell skipped `~/.bashrc` | Use a normal terminal |
+| `grep '^CONFIG_RUST=y'` prints nothing | Day 4 unfinished | `install_rust_toolchain.sh`, then `enable_rust_config.sh` |
+| Build never mentions `hello_rust` | Makefile line missing, or config is `n` | `grep HELLO samples/rust/Makefile .config` |
+| `CONFIG_SAMPLE_RUST_HELLO` vanishes after `olddefconfig` | Your Kconfig block landed *after* `endif`, or `SAMPLES_RUST` is off | Move it above `endif # SAMPLES_RUST`; `scripts/config --enable SAMPLES_RUST` |
+| `error[E0433]: failed to resolve: use of undeclared crate or module` | Missing `use kernel::prelude::*;` | Add it |
+| `expected 1 argument, found 2` on `push` | Reading userspace `Vec` docs | Kernel `push` takes a GFP flag: `push(v, GFP_KERNEL)?` |
+| `the ? operator can only be used in a function that returns Result` | `?` outside `init` | Only use `?` where the return type is `Result` |
+| `insmod: Invalid module format` | `.ko` built against a different tree than you booted | Rebuild, then `vng` from that same tree; compare `modinfo` vermagic with `uname -r` |
+| `insmod: Operation not permitted` | Non-GPL license string | Set `license: "GPL"` back |
+| `vng` hangs or prints nothing | It wants a real TTY | Run it in your own terminal, not an editor task |
+| Parameter ignored in the `=y` build | Built-in params are namespaced | `vng -a hello_rust.greetings=N` |
+| Nothing in `dmesg` at all | Log level filtering | `vng --exec 'dmesg -n 8; ...'` |
 
 ---
 
-**Next:** Day 5 — developer ergonomics. Run `make LLVM=1 rust-analyzer` and then open
-`hello_rust.rs` in your editor; you will get real completion on `kernel::` APIs, which changes how
-much of the abstraction layer you can discover on your own.
+**Next:** Day 5 — run `make LLVM=1 rust-analyzer`, then reopen `hello_rust.rs` in your editor. You
+will get real completion on `kernel::` APIs, which changes how much of the abstraction layer you can
+discover by exploring rather than by reading.

@@ -385,13 +385,17 @@ LKD_RUST/
 ├── Readme.md                  # this file — the 18-month roadmap (the theory + daily concepts)
 ├── SETUP.md                   # Week 0: build the lab (WSL2, kernel, Rust toolchain, QEMU, git send-email)
 ├── UPSTREAM.md                # the contribution playbook: patch workflow, etiquette, first-patch targets
+├── ACTIVITIES.md              # the Kernel Lab track: how activities are designed, and the index
 ├── LICENSE                    # MIT for these notes (kernel patches themselves are GPL-2.0)
 ├── .gitignore
 ├── .gitattributes             # keeps .sh/.rs/.c LF so they work in Linux
+├── _internal/                 # git-ignored: setup log, env dumps, anything work-confidential
+│   └── README.md              # (the only file here that IS committed)
 ├── theory/                    # the daily notes — written as you study
 │   └── Month_1/Week_1/
 │       ├── Day_1.md
 │       ├── Day_2.md
+│       ├── activity.md        # the week's runnable Kernel Lab
 │       └── ...
 ├── codes/                     # all code, mirroring theory/ exactly
 │   ├── README.md
@@ -1389,6 +1393,12 @@ KernelRustBook expanded into the canonical resource: complete curriculum, CI-ver
 - [ ] **Lab Bring-Up Report** — `_internal/SETUP_LOG.md` recording: toolchain versions, build times, your boot scripts, and every error you hit with its fix. It lives in `_internal/` because it records the hostname and local paths, so it is git-ignored by design
 - [ ] Write the `codes/Month_1/Week_1/Day_5/check_setup.sh` script that verifies your whole lab in one command
 - [ ] Deliberately break something (bad `.config`, wrong rustc version) and confirm your script catches it
+- [ ] **Kernel Lab — `hello_rust`** → full runbook: [`theory/Month_1/Week_1/activity.md`](theory/Month_1/Week_1/activity.md)
+  - [ ] **Typed by hand in vim, in four stages**, building and booting after each one: bare module → module parameter → fallible `KVec` allocation + `Drop` → built-in. Stage 1 is 20 minutes and ends with your code in `dmesg`
+  - [ ] Write the `Kconfig` entry and the `Makefile` line yourself before using the script that automates them
+  - [ ] Build it **both ways** from one source: `=m` and `insmod` it, then `=y` and watch it greet you during boot
+  - [ ] Explain why `Drop` never runs in the built-in build. This is the whole lesson
+  - [ ] Deliberate break: set `license: "Proprietary"`, rebuild, try to load it, and read the failure
 
 ### 📄 Sunday Reading
 - [ ] `Documentation/rust/index.rst` — all of it, including `general-information.rst` and `coding-guidelines.rst`
@@ -1438,6 +1448,11 @@ KernelRustBook expanded into the canonical resource: complete curriculum, CI-ver
 - [ ] **Register Map Parser (Rust CLI)** — parse a text file of `NAME = 0xADDR, bits [hi:lo] = FIELD` lines into typed structures, validate for overlaps and gaps, and pretty-print a register map
 - [ ] Why this: it is real ownership/`Vec`/`String`/error-handling practice, **and** it is the seed of the Nova register tooling you will build in Month 9
 - [ ] Handle malformed input with `Result` and clear error messages — no panics
+- [ ] **Kernel Lab — `drop_order`** (30-60 min, see [`ACTIVITIES.md`](ACTIVITIES.md))
+  - [ ] A module holding three nested owned values, each with a `Drop` that prints. Predict the `dmesg` order **before** you load it, then check
+  - [ ] Reuses the Week 0 module scaffolding — copy `hello_rust.rs` and `install_hello.sh` as your starting point
+  - [ ] Deliberate break: a `fail_late` parameter that returns `Err` from `init` *after* two of the three are constructed. Prove in `dmesg` that exactly those two are dropped, in reverse order, and that `insmod` fails cleanly
+  - [ ] This is the `goto err_unlock` ladder from your Day 5 C reading, deleted by the compiler. Write that comparison in your journal
 
 ### 📄 Sunday Reading
 - [ ] The Rust Book, Ch. 4 (Ownership) — read it twice, properly
@@ -1487,6 +1502,11 @@ KernelRustBook expanded into the canonical resource: complete curriculum, CI-ver
   - [ ] `doctor`: parse what the tree demands (`rustavailable` output, `scripts/min-tool-version.sh`), compare with what is installed, print exact fix commands
   - [ ] `config`: apply a named Kconfig fragment profile to a tree via `merge_config.sh`
   - [ ] Structured errors, no panics, clear output
+- [ ] **Kernel Lab — `trait_regs`** (30-60 min, see [`ACTIVITIES.md`](ACTIVITIES.md))
+  - [ ] Define a `Register` trait with `read`/`write` **inside a kernel module**, and implement it twice: once over a `KVec<u32>` standing in for MMIO, once as a logging wrapper that prints every access
+  - [ ] Drive both through one generic function. This is the userspace exercise from Day 1, now running in ring 0
+  - [ ] Compare static and dynamic dispatch for real: build with a generic, then with `dyn`, and diff the symbol sizes with `nm --size-sort samples/rust/trait_regs.o`. Monomorphization has a cost and now you can see it in bytes
+  - [ ] Deliberate break: try to store your trait object where the C side needs a function-pointer table, and read why `#[vtable]` exists rather than guessing
 
 ### 📄 Sunday Reading
 - [ ] The Rust Book, Ch. 10 (Generics, Traits, Lifetimes) — traits sections
@@ -1536,6 +1556,12 @@ KernelRustBook expanded into the canonical resource: complete curriculum, CI-ver
   - [ ] Walk any Linux tree; count Rust LOC per subsystem; list `rust/kernel/` modules with their gating `CONFIG_`
   - [ ] List in-tree Rust drivers with subsystem and `MAINTAINERS` entry
   - [ ] Markdown output; iterator-heavy implementation; zero `unwrap()`
+- [ ] **Kernel Lab — `raii_probe`** (45-60 min, see [`ACTIVITIES.md`](ACTIVITIES.md)) — **the most important lab of Month 1**
+  - [ ] A module whose `init` acquires three resources in order, each printing on acquire and on release
+  - [ ] A `fail_at` module parameter taking 0, 1, 2, or 3. Run all four. Every single time, exactly the acquired resources are released, in exact reverse order, with no code from you saying so
+  - [ ] Then write the equivalent C by hand, with the `goto err_*` ladder, and count the lines you did not have to write. Keep both side by side in your journal
+  - [ ] Reuses Week 1's `Drop` ordering and Week 2's traits; this is the payoff for both
+  - [ ] Read `rust/kernel/devres.rs` afterwards, and you will recognise what it is doing
 
 ### 📄 Sunday Reading
 - [ ] The Rust Book, Ch. 10 (lifetimes section) and Ch. 13 (closures, iterators)
@@ -1586,6 +1612,12 @@ KernelRustBook expanded into the canonical resource: complete curriculum, CI-ver
   - [ ] `boot`: QEMU/virtme-ng boot, capture console, grep for `Oops|BUG|WARNING|call trace`, exit non-zero on failure
   - [ ] `bisect-boot`: `git bisect run` with your boot test as the predicate
   - [ ] Prove it works: introduce a deliberate boot regression, and let bisect find it
+- [ ] **Kernel Lab — `alloc_fail`** (45-60 min, see [`ACTIVITIES.md`](ACTIVITIES.md))
+  - [ ] A module that allocates with `KBox`, `KVec`, and `Arc`, handling every failure with `?` — no `unwrap()` anywhere
+  - [ ] Then **make the allocator actually fail.** Build with `CONFIG_FAILSLAB=y` + `CONFIG_FAULT_INJECTION_DEBUG_FS=y` and drive it from `/sys/kernel/debug/failslab/`
+  - [ ] Confirm `insmod` returns `-ENOMEM`, the partial state unwinds correctly, and `kmemleak` reports nothing. Most drivers have never had this path executed even once
+  - [ ] Contrast with Day 4's C misc device: what would that code have done here? Add the answer to your C bug list
+  - [ ] Reuses Week 3's `fail_at` teardown proof — this is the same idea with a failure you did not choose
 
 ### 📄 Sunday Reading
 - [ ] The Rust Book, Ch. 15 (Smart Pointers)
@@ -1650,6 +1682,11 @@ KernelRustBook expanded into the canonical resource: complete curriculum, CI-ver
   - [ ] Detect missing `// SAFETY:` comments; detect content-free ones
   - [ ] Run it on the whole `rust/` tree and on `drivers/`; report the difference
   - [ ] Write up the numbers — this is a real finding
+- [ ] **Kernel Lab — `unsafe_contract`** (45-60 min, see [`ACTIVITIES.md`](ACTIVITIES.md))
+  - [ ] One `unsafe fn` in a kernel module that reads through a raw pointer, with a `# Safety` section stating precisely what the caller must guarantee
+  - [ ] Call it correctly. Then add an `evil` module parameter that violates the contract on purpose, and find out what the kernel does — possibly nothing, which is the unsettling and important part
+  - [ ] **Then run your own SafetyLint against your own module.** The tool you built this week auditing the code you wrote this week. Does it pass its own standard?
+  - [ ] Reuses Week 4's allocation for the buffer you point at; reuses Week 0's parameters for the switch
 
 ### 📄 Sunday Reading
 - [ ] **The Rustonomicon** — "Meet Safe and Unsafe", "Working with Unsafe", "Data Layout" chapters
@@ -1701,6 +1738,12 @@ KernelRustBook expanded into the canonical resource: complete curriculum, CI-ver
   - [ ] Implement 8 classic concurrency bugs in userspace Rust: data race, ABBA deadlock, double-unlock, torn read, publish-before-init, missing barrier, use-after-free across threads, lost wakeup
   - [ ] For each: does it compile? If it compiles, does `loom`/`miri`/TSan catch it?
   - [ ] Write the three-column table: prevented at compile time / caught by tooling / silent
+- [ ] **Kernel Lab — `spin_atomic`** (45-60 min, see [`ACTIVITIES.md`](ACTIVITIES.md)) — the museum's first kernel exhibit
+  - [ ] A module with a `SpinLock<KVec<u64>>` and a kernel atomic counter, hammered concurrently from a workqueue
+  - [ ] Build with `CONFIG_PROVE_LOCKING=y` and `CONFIG_DEBUG_ATOMIC_SLEEP=y` from the start
+  - [ ] **Deliberate break, and the point of the lab:** take two spinlocks in opposite orders behind a module parameter, and let **lockdep print the ABBA report for you**. Read the whole report; learn to recognise its shape now, while you know exactly what caused it
+  - [ ] Second break: sleep while holding a spinlock and watch `DEBUG_ATOMIC_SLEEP` catch you. This is the "life-or-death distinction" from Week 4 Day 2, made concrete
+  - [ ] Two of your eight userspace bugs now have kernel counterparts. Start the kernel column of the table that becomes LockProof in Week 21
 
 ### 📄 Sunday Reading
 - [ ] **"Rust Atomics and Locks" (Mara Bos)** — Ch. 1-3 (free online). This book is the single best investment for this month
@@ -1748,6 +1791,11 @@ KernelRustBook expanded into the canonical resource: complete curriculum, CI-ver
   - [ ] 10 graded exercises with `trybuild` compile-fail tests
   - [ ] Progression: move breaks self-reference → `Pin<&mut T>` → `Unpin` → projection → `#[pin_data]`
   - [ ] Each exercise cites the real kernel code that uses the same pattern
+- [ ] **Kernel Lab — `pinned_list`** (45-60 min, see [`ACTIVITIES.md`](ACTIVITIES.md))
+  - [ ] Take Week 6's `spin_atomic` module and convert it to `#[pin_data]` + `pin_init!`, with the lock as a pinned field. Same behaviour, correct initialization
+  - [ ] Then add an intrusive `List` from `rust/kernel/list/` holding your entries, and iterate it under the lock
+  - [ ] Deliberate break: try to construct the pinned struct on the stack and move it. Read the compile error carefully — that error **is** the pinning guarantee, and you now know what it prevents in `rust/kernel/sync/lock.rs`
+  - [ ] Answer in your journal: why must an object the C side holds a pointer to be pinned? You wrote this answer on Day 5 from reading. Now you have written the code, so answer it again and compare
 
 ### 📄 Sunday Reading
 - [ ] `std::pin` module documentation — all of it, slowly
@@ -1797,6 +1845,12 @@ KernelRustBook expanded into the canonical resource: complete curriculum, CI-ver
 - [ ] **PinDojo v0.2 + SafetyLint v0.2** — polish both for the buffer week
   - [ ] PinDojo: expand to 20 exercises, add the `pin_init!` section, add prose explanations
   - [ ] SafetyLint: add safety-claim classification (pointer validity, aliasing, lifetime, initialization, locking, C contract) and per-subsystem hygiene scores
+- [ ] **Kernel Lab — `bindgen_peek`** (45-60 min, see [`ACTIVITIES.md`](ACTIVITIES.md)) — the last lab before KModKit
+  - [ ] Find the generated declaration for one C function in `rust/bindings/bindings_generated.rs`, then call it from your module through an `unsafe` block with a real `// SAFETY:` comment
+  - [ ] Read a field out of a C struct and print it. You are now standing exactly where every kernel Rust abstraction starts
+  - [ ] Add a shim to `rust/helpers/` for something bindgen cannot reach — a `static inline` or a macro — and wire it up. This is the mechanism, not a mystery
+  - [ ] Deliberate break: use `bindings::` directly from what is meant to be leaf-driver code, then re-read Day 2 on why reviewers reject that. Then do it properly by putting a safe wrapper in between
+  - [ ] **Gate check for Month 2:** you have now written, inside the kernel, every mechanism Week 9's KModKit assumes. Re-read the Week 9 Saturday Project — it should read as assembly of familiar parts, not as eight new ideas
 
 ### 📄 Sunday Reading
 - [ ] `Documentation/rust/general-information.rst` and `arch-support.rst`
