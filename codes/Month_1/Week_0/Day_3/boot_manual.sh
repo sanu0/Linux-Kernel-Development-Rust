@@ -1,9 +1,9 @@
 #!/bin/bash
-# M1W1D3 - boot the kernel with a raw QEMU command line, no virtme-ng.
+# M1W0D3 - boot the kernel with a raw QEMU command line, no virtme-ng.
 #
 # The point is to see what a kernel boot looks like with nothing helping it: no root
 # filesystem, no init, no filesystem sharing. It will panic with "No working init found",
-# and that panic IS the success condition - see theory/Month_1/Week_1/Day_3.md concept 3.
+# and that panic IS the success condition - see theory/Month_1/Week_0/Day_3.md concept 3.
 #
 # Usage:
 #   bash boot_manual.sh              # boot, capture the log, exit on panic
@@ -18,7 +18,7 @@ cd "$LINUX_TREE" || exit 1
 BZ="arch/x86/boot/bzImage"
 [ -f "$BZ" ] || { echo "No $BZ - run 'make -j\$(nproc)' first."; exit 1; }
 
-LOGDIR="$HOME/LKD_RUST/Month_1/Week_1"
+LOGDIR="$HOME/LKD_RUST/Month_1/Week_0"
 mkdir -p "$LOGDIR"
 LOG="$LOGDIR/boot_manual.log"
 

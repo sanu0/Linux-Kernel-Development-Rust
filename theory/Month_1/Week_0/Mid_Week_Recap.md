@@ -1,4 +1,4 @@
-# M1W1 — Mid-Week Recap (Days 1-3)
+# M1W0 — Mid-Week Recap (Days 1-3)
 
 > **What this is:** a revision document, not a lesson. Days 1-3 are done; this consolidates the
 > concepts, the commands, and the traps into one file you can reread before Day 4 or in three months
@@ -496,7 +496,7 @@ location), **`?`** shows help text and the `Kconfig` file, **Enter** descends, *
 ### Building
 
 ```bash
-time make -j"$(nproc)" 2>&1 | tee ~/LKD_RUST/Month_1/Week_1/build1.log
+time make -j"$(nproc)" 2>&1 | tee ~/LKD_RUST/Month_1/Week_0/build1.log
 make -j"$(($(nproc)/2))"             # if the OOM reaper killed the build
 make clean                           # remove build output, KEEP .config     <- use this
 make mrproper                        # remove build output AND .config
@@ -520,7 +520,7 @@ qemu-system-x86_64 \
   -no-reboot                             # do not loop forever on panic
 ```
 
-Add `| tee ~/LKD_RUST/Month_1/Week_1/boot_manual.log` to keep the output. Then:
+Add `| tee ~/LKD_RUST/Month_1/Week_0/boot_manual.log` to keep the output. Then:
 
 ```bash
 grep -iE 'panic|Linux version|Command line' boot_manual.log
@@ -569,13 +569,13 @@ raise `processors` in `.wslconfig`, and check `ccache -s` shows hits.
 |---|---|
 | [`codes/sync_from_repo.sh`](../../../codes/sync_from_repo.sh) | repo → WSL. Also strips CRLF and restores the `+x` bit, because NTFS preserves neither |
 | [`codes/sync_to_repo.sh`](../../../codes/sync_to_repo.sh) | WSL → repo, so you can commit what you wrote |
-| [`Day_1/install_deps.sh`](../../../codes/Month_1/Week_1/Day_1/install_deps.sh) | every dependency + LLVM + ccache + the directory layout. Idempotent |
-| [`Day_1/record_env.sh`](../../../codes/Month_1/Week_1/Day_1/record_env.sh) | dump machine + toolchain state to a file. Diff two of these when something breaks in Month 4 |
-| [`Day_1/check_day1.sh`](../../../codes/Month_1/Week_1/Day_1/check_day1.sh) | verify Day 1; **fails** if `$LINUX_TREE` is under `/mnt/` |
-| [`Day_2/clone_kernel.sh`](../../../codes/Month_1/Week_1/Day_2/clone_kernel.sh) | clone mainline and add the four remotes |
-| [`Day_2/first_build.sh`](../../../codes/Month_1/Week_1/Day_2/first_build.sh) | `defconfig` + timed build + the numbers |
-| [`Day_3/boot_manual.sh`](../../../codes/Month_1/Week_1/Day_3/boot_manual.sh) | raw QEMU boot; `--interactive` to stay in, `--debug` for `nokaslr` + `earlyprintk` |
-| [`Day_3/time_loop.sh`](../../../codes/Month_1/Week_1/Day_3/time_loop.sh) | measure the edit→build→boot loop |
+| [`Day_1/install_deps.sh`](../../../codes/Month_1/Week_0/Day_1/install_deps.sh) | every dependency + LLVM + ccache + the directory layout. Idempotent |
+| [`Day_1/record_env.sh`](../../../codes/Month_1/Week_0/Day_1/record_env.sh) | dump machine + toolchain state to a file. Diff two of these when something breaks in Month 4 |
+| [`Day_1/check_day1.sh`](../../../codes/Month_1/Week_0/Day_1/check_day1.sh) | verify Day 1; **fails** if `$LINUX_TREE` is under `/mnt/` |
+| [`Day_2/clone_kernel.sh`](../../../codes/Month_1/Week_0/Day_2/clone_kernel.sh) | clone mainline and add the four remotes |
+| [`Day_2/first_build.sh`](../../../codes/Month_1/Week_0/Day_2/first_build.sh) | `defconfig` + timed build + the numbers |
+| [`Day_3/boot_manual.sh`](../../../codes/Month_1/Week_0/Day_3/boot_manual.sh) | raw QEMU boot; `--interactive` to stay in, `--debug` for `nokaslr` + `earlyprintk` |
+| [`Day_3/time_loop.sh`](../../../codes/Month_1/Week_0/Day_3/time_loop.sh) | measure the edit→build→boot loop |
 | `check_day2.sh` / `check_day3.sh` | per-day verification; exit code is the failure count |
 
 Then commit from the Windows side:
@@ -869,5 +869,5 @@ scripts/min-tool-version.sh llvm       # 17.0.1
 
 ---
 
-**Next:** [M1W1D4 — The Rust Toolchain](Day_4.md). Everything so far has been C infrastructure;
+**Next:** [M1W0D4 — The Rust Toolchain](Day_4.md). Everything so far has been C infrastructure;
 tomorrow the roadmap's actual subject begins.

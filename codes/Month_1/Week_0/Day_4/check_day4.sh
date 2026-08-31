@@ -1,5 +1,5 @@
 #!/bin/bash
-# M1W1D4 - verify the Rust toolchain, the Rust-enabled kernel, and that a Rust module loads.
+# M1W0D4 - verify the Rust toolchain, the Rust-enabled kernel, and that a Rust module loads.
 #
 # Usage:  bash check_day4.sh
 # Exit code is the number of failures.
@@ -18,7 +18,7 @@ warn() { printf '  %s[warn]%s %s\n' "$Y" "$N" "$1"; WARNINGS=$((WARNINGS+1)); }
 fail() { printf '  %s[FAIL]%s %s\n' "$R" "$N" "$1"; FAILURES=$((FAILURES+1)); }
 info() { printf '         %s\n' "$1"; }
 
-printf '%sM1W1D4 - Rust toolchain check%s\n' "$B" "$N"
+printf '%sM1W0D4 - Rust toolchain check%s\n' "$B" "$N"
 
 : "${LINUX_TREE:?}" 2>/dev/null
 [ -n "${LINUX_TREE:-}" ] || { fail "\$LINUX_TREE unset"; exit 1; }
@@ -166,11 +166,11 @@ section "Developer ergonomics"
 section "Summary"
 
 if   [ "$FAILURES" -eq 0 ] && [ "$WARNINGS" -eq 0 ]; then
-  printf '  %sDay 4 complete. You have run Rust in ring 0. On to M1W1D5.%s\n\n' "$G" "$N"
+  printf '  %sDay 4 complete. You have run Rust in ring 0. On to M1W0D5.%s\n\n' "$G" "$N"
 elif [ "$FAILURES" -eq 0 ]; then
   printf '  %s%d warning(s), no failures.%s Day 4 is done.\n\n' "$Y" "$WARNINGS" "$N"
 else
-  printf '  %s%d failure(s)%s and %d warning(s). See theory/Month_1/Week_1/Day_4.md\n\n' "$R" "$FAILURES" "$N" "$WARNINGS"
+  printf '  %s%d failure(s)%s and %d warning(s). See theory/Month_1/Week_0/Day_4.md\n\n' "$R" "$FAILURES" "$N" "$WARNINGS"
 fi
 
 exit "$FAILURES"

@@ -3,7 +3,8 @@
 # Linux Kernel Development in Rust — Mastery Roadmap
 
 > **Daily: 2-3 hours** | **Saturday: 3-4 hrs project** | **Sunday: 1-2 hrs reading (papers, LWN, talks)**
-> **Duration:** ~18 months | **6-month milestone:** real Rust drivers that boot, plus patches on the mailing list
+> **Duration:** 95 content weeks — **plan for 24 months**, do not be alarmed by 30. See [Timeline: An Honest Accounting](#timeline-an-honest-accounting)
+> **6-month milestone:** real Rust drivers that boot, plus patches on the mailing list
 > **After each month:** 1 week revision buffer to revisit weak areas + complete monthly projects
 > **Projects:** 1 weekly project + **2 monthly projects** (novel, cumulative, useful to other kernel developers)
 > **End goal:** merged contributions in **mainline Linux** (`git.kernel.org/torvalds/linux`), and the judgment of an engineer who can be trusted with `unsafe` at the C boundary.
@@ -18,9 +19,15 @@
 - [State of Rust-for-Linux (Read This Before Planning)](#state-of-rust-for-linux-read-this-before-planning)
 - [Your Lab (Hardware & Environment Reality)](#your-lab-hardware--environment-reality)
 - [How To Use This File](#how-to-use-this-file)
+- [Timeline: An Honest Accounting](#timeline-an-honest-accounting)
+- [Owning Your Work: Git Discipline For A Two-Year Project](#owning-your-work-git-discipline-for-a-two-year-project)
+- [The C Track: Making "Read C Weekly" Real](#the-c-track-making-read-c-weekly-real)
+- [Retention: Still Knowing Month 2 When You Reach Month 20](#retention-still-knowing-month-2-when-you-reach-month-20)
+- [When You Fall Behind (You Will)](#when-you-fall-behind-you-will)
 - [Project Philosophy: Novel + Useful + Cumulative](#project-philosophy-novel--useful--cumulative)
 - [Expertise Gates](#expertise-gates)
 - [How This Folder Relates To Your Other Tracks](#how-this-folder-relates-to-your-other-tracks)
+- [⚡ The Accelerated Computing Angle](#the-accelerated-computing-angle)
 - [Repo Layout & GitHub Setup](#repo-layout--github-setup)
 - [Progress Overview](#progress-overview)
 
@@ -89,9 +96,11 @@
 - [Week 16 — Interrupts, Workqueues, Timers](#week-16--interrupts-workqueues-timers)
 - [🔄 Buffer Week (Month 4 Revision)](#-buffer-week-month-4-revision)
 - [Week 17 — Memory & DMA](#week-17--memory--dma)
+- [⚡ Week 17.5 — Page Tables, TLB & NUMA](#week-175--page-tables-tlb--numa-)
 - [Week 18 — I2C, SPI, GPIO, clk, regulator, PWM](#week-18--i2c-spi-gpio-clk-regulator-pwm)
 - [Week 19 — sysfs, debugfs, configfs, Module Params](#week-19--sysfs-debugfs-configfs-module-params)
 - [Week 20 — Power Management](#week-20--power-management)
+- [⚡ Week 20.5 — The CPU Scheduler, cgroups & Isolation](#week-205--the-cpu-scheduler-cgroups--isolation-)
 - [🔄 Buffer Week (Month 5 Revision)](#-buffer-week-month-5-revision)
 - [Week 21 — RCU, LKMM, lockdep: Concurrency For Real](#week-21--rcu-lkmm-lockdep-concurrency-for-real)
 - [Week 22 — Kernel Data Structures in Rust](#week-22--kernel-data-structures-in-rust)
@@ -107,6 +116,7 @@
 - [🔄 Buffer Week (Month 7 Revision)](#-buffer-week-month-7-revision)
 - [Week 29-30 — DRM & KMS Fundamentals](#week-29-30--drm--kms-fundamentals)
 - [Week 31-32 — GEM, dma-fence, Scheduling, GPUVM/VM_BIND](#week-31-32--gem-dma-fence-scheduling-gpuvmvm_bind)
+- [⚡ Week 32.5 — The GPU Compute Stack](#week-325--the-gpu-compute-stack-)
 - [🔄 Buffer Week (Month 8 Revision)](#-buffer-week-month-8-revision)
 - [Week 33-34 — Nova Core: PCI, VBIOS, Falcon, GSP Boot](#week-33-34--nova-core-pci-vbios-falcon-gsp-boot)
 - [Week 35-36 — Nova DRM: uAPI, RPC, and Your First Nova Patch](#week-35-36--nova-drm-uapi-rpc-and-your-first-nova-patch)
@@ -131,6 +141,7 @@
 ### 🏅 Phase 5: Mastery (Weeks 53-64, Months 14-16)
 - [Week 53-54 — Virtualization: virtio, VFIO, KVM](#week-53-54--virtualization-virtio-vfio-kvm)
 - [Week 55-56 — Advanced Memory Management](#week-55-56--advanced-memory-management)
+- [⚡ Week 56.5 — Accelerator Memory: HMM, P2P DMA, GPUDirect](#week-565--accelerator-memory-hmm-p2p-dma-gpudirect-)
 - [🔄 Buffer Week (Month 14 Revision)](#-buffer-week-month-14-revision)
 - [Week 57-60 — Major Contribution + Authoring](#week-57-60--major-contribution--authoring)
 - [🔄 Buffer Week (Month 15 Revision)](#-buffer-week-month-15-revision)
@@ -230,6 +241,20 @@ Snapshot as of **August 2026** — verify against `Documentation/rust/` and [rus
 
 **Rule:** leaf drivers must not touch `rust/bindings/` directly. If the abstraction you need does not exist, writing it *is* the contribution.
 
+### Keeping this file honest — a ritual, not a hope
+
+Over two years, a meaningful fraction of the specifics above will go stale: abstractions land, RFCs merge or die, Nova's architecture moves, and version numbers drift. A document that tells you to "verify before relying on it" without saying when will not get verified. So attach it to something that already happens on a schedule.
+
+**Every buffer week, spend 30 minutes on this file:**
+
+- [ ] Re-run RustScope against the current tree. Which abstractions exist now that did not last month?
+- [ ] Check the two "check current status" entries in the [Abstraction Checklist](#kernel-rust-abstraction-checklist) (`sysfs`, `usb`) and any others you marked — did the RFC land?
+- [ ] Skim `Documentation/rust/` for changes since your last pass; the coding guidelines in particular
+- [ ] Update the [State of Rust-for-Linux](#state-of-rust-for-linux-read-this-before-planning) table with anything that moved, and change the snapshot date
+- [ ] Correct anything this file now gets wrong, and note *what* was wrong in your journal — a roadmap that quietly drifts from reality is worse than one you know is dated
+
+This is also the cheapest possible way to stay current with the project as a whole, because the diff between "what this file says" and "what the tree says" is exactly the news.
+
 ---
 
 ## Your Lab (Hardware & Environment Reality)
@@ -252,6 +277,18 @@ Kernel development needs a machine you can crash. Your primary box is Windows 11
 - [ ] Decide your Tier 3 board and order it now, so it arrives before Month 5
 - [ ] Plan for Tier 4/5 access before Month 9 — a GA102 board is required for Nova hardware work, so start sourcing one early (used market, a loan from a friend, or a rented bare-metal host)
 
+### If the hardware never arrives — the contingency you need in writing
+
+Months 8, 9 and 15, plus Magnum Opus Option C, all lean on GPU hardware you do not currently own. Decide the fallback now, in Week 0, so that a Month 9 hardware failure costs you a redirect and not a quarter.
+
+| If you cannot get | Then | Cost of the substitution |
+|-------------------|------|--------------------------|
+| **A Tier-3 ARM board** (Month 5, SensorRS) | QEMU-emulated I2C/SPI devices, or an SoC emulated with `-M virt` plus a DT overlay | Real, but small: you lose "it works on hardware" from the cover letter, which weakens a submission rather than blocking it. A $50 board removes the problem entirely — order it in Week 0 |
+| **A GA102 GPU** (Months 9, 15, Magnum Opus C) | Nova's *source-reading, documentation and tooling* work needs no GPU. `NovaScope`'s register validator, `GSPAtlas`'s generated docs, and the boot-path narration are all static analysis. What you lose is hardware validation | Significant but survivable. Documentation patches are still the highest-acceptance first Nova contribution, and they do not require a boot |
+| **Any GPU at all** | **Redirect the GPU months.** `TinyDRM` runs entirely in QEMU and needs nothing. For Month 15 and the Magnum Opus, pick a non-GPU target: Magnum Opus Option B (a new subsystem abstraction plus two drivers) or Option D (a filesystem or block driver) are fully achievable with QEMU alone | None to the *learning*. GPU work is the most glamorous path in this file, not the most valuable one. Option B is arguably the highest-leverage contribution type in Rust-for-Linux |
+
+> **The rule:** never let a hardware dependency idle you. If the GPU is not there by the end of Month 8, commit to the non-GPU track for Months 9 and 15 and treat Nova as reading material. You can always come back to it; you cannot get the quarter back.
+
 **See `SETUP.md` for the full step-by-step lab build.**
 
 ---
@@ -270,10 +307,243 @@ Kernel development needs a machine you can crash. Your primary box is Windows 11
 - **Read C every single week.** Pick one real C driver and read it end to end. Rust fluency without C kernel literacy is useless upstream.
 - **Lurk on the mailing lists from Week 1.** You learn the culture by osmosis long before you post.
 - **Use AI (Cursor/Codex/Claude)** as a tutor, C-to-Rust translator, and ruthless reviewer — but **never** paste AI-written code into an upstream patch without understanding every line. Maintainers will find out, and your reputation is the only currency you have.
+- **Commit your work on a topic branch before you close the session.** Not "when it is finished" — every session. Your kernel tree is not backed up by anything, and an uncommitted working tree is the only state git cannot recover for you. See [Owning Your Work](#owning-your-work-git-discipline-for-a-two-year-project).
+- **Spend the last fifteen minutes on retention, not new material.** Add a card for anything you looked up twice, and write the three journal lines. Over two years this is the difference between having learned something and still knowing it — see [Retention](#retention-still-knowing-month-2-when-you-reach-month-20).
+- **When a week goes wrong, read [When You Fall Behind](#when-you-fall-behind-you-will) instead of improvising.** There is a triage order and a minimum viable week; use them. The plan survives interruptions and dies from guilt.
 
 ### The one rule that beats all the others
 
 > **Boot it.** A kernel change that has not been booted does not exist. If you cannot boot it, you cannot claim it works, and you must not send it.
+
+---
+
+## Timeline: An Honest Accounting
+
+This file used to say 18 months. The arithmetic does not support it, and pretending otherwise sets you up to feel behind from Month 2 onward for no reason.
+
+Count it properly:
+
+| Item | Weeks |
+|------|-------|
+| Numbered content weeks (Week 0 through Week 78) | 79 |
+| Buffer / revision weeks (one after each of 16 months) | 16 |
+| **Total content, assuming nothing ever goes wrong** | **95** |
+
+95 weeks is **22 months** in the impossible case where nothing slips. Then add the things this plan does not control:
+
+- **Review latency.** Month 10's abstraction RFC and Month 13's driver merge depend on other people's calendars. A series can sit a fortnight before anyone looks at it, and a merge window freezes new development for two weeks at a time
+- **Hardware.** The Tier-3 board and any GPU access arrive when they arrive
+- **Your job.** You work full time at a hardware company. Crunches, on-call, and travel are certainties, not risks
+- **Concepts that take longer.** This file already tells you to split a day across two when it needs it. That instruction has a cost, and the cost is weeks
+
+**Plan for 24 months. Do not be alarmed by 30.**
+
+The end goal — a credible candidate for co-maintainership of a Rust driver or abstraction — is a genuinely senior position. Most people who hold it got there over several years, usually while being paid to do it full time. Reaching it in two years of disciplined evening work would be fast, not slow.
+
+What this changes in practice is **nothing about the content and everything about how you read a slipped schedule.** The sequence is what matters, because each phase genuinely depends on the one before it. The dates are yours to move.
+
+> **One honest milestone to judge yourself against:** your first *merged* patch. Month 5 is when this file first asks you to submit. Realistically, the first merge lands somewhere between Month 6 and Month 10, depending on which list you drew and how review went. Anywhere in that range is a good outcome, not a late one.
+
+---
+
+## Owning Your Work: Git Discipline For A Two-Year Project
+
+For two years you will be making changes to a tree you do not own, which moves under you every day, and which you will `git pull` several hundred times. Your work is a stack of patches balanced on top of someone else's history.
+
+**The kernel tree is not backed up by anything.** It lives in WSL at `~/LKD_RUST/kernel/linux`, deliberately outside this repo — 5 GB of Torvalds' history has no business in your git history. OneDrive does not see it. No sync script covers it. If you delete a branch, check out over a file, or run `make mrproper` at the wrong moment, the only thing between you and redoing a week is git's own safety net. Learn it before you need it, not during.
+
+### The rules
+
+- **Never work on `master`.** It tracks upstream. One topic branch per change, named for the change: `hello-rust`, `sensor-bmp280`, `abstraction-hwmon`. Branches are free and instant here, unlike a Perforce branch spec
+- **Commit early and often on your branch.** A commit hash is a permanent, offline reference to a state you can return to. It is the closest equivalent to a Perforce CL number, and unlike a shelve it never expires or shifts position
+- **`git stash` is for interruptions, not for keeping things.** Stash entries are positional (`stash@{0}` moves the moment you stash again), unnamed, and easy to destroy. Use them for "I need to switch tasks for an hour", never for "I want this next month"
+- **Before any `git pull`, know where your work is.** `git status -sb` and `git branch -v`. If the answer is "uncommitted in the working tree", commit it first
+
+### The commands that matter, and why
+
+| Command | What it is for |
+|---------|----------------|
+| `git log --oneline` | Your list of changes — the `p4 changes` equivalent |
+| `git show <hash>` | Message plus every `+`/`-` line. Your Swarm diff view, offline and permanent |
+| `git show --stat <hash>` | Just the file paths and line counts |
+| `git worktree add ../linux-next next/master` | **A second checked-out tree sharing one object store.** Build mainline and `drm-rust-next` simultaneously without a second 5 GB clone. You will want this from Month 8 |
+| `git range-diff v1base..v1 v2base..v2` | **What changed between your v1 and your v2.** This is how you write an honest per-patch changelog — and it is what reviewers run on you |
+| `git config --global rerere.enabled true` | Records how you resolved a conflict and replays it next time. You will rebase the same out-of-tree patches onto new upstream dozens of times |
+| `git reflog` | Every position `HEAD` has held, for ~90 days. **A deleted branch's commits are still in here.** This is the undo button |
+| `git bisect run <script>` | Covered properly in Week 41-42; it is the point of KernelForge's `bisect-boot` |
+
+### Carrying your own patches across upstream
+
+From Month 2 onward you permanently have work-in-progress that is not upstream, on a tree gaining thousands of commits a week:
+
+```bash
+git fetch origin
+git checkout my-topic
+git rebase origin/master        # rerere replays conflicts you have already solved
+make LLVM=1 -j"$(nproc)"        # it compiled last month; upstream has moved since
+```
+
+If a rebase turns ugly, `git rebase --abort` always returns you to exactly where you were. Aborting costs nothing.
+
+### Recovering when it goes wrong
+
+```bash
+git reflog                                   # find the hash you were at
+git checkout -b rescue <hash>                # your work, back on a branch
+git restore --source=<hash> -- <path>        # or pull individual files out
+```
+
+Deleting a branch does not delete its commits — it removes the *name*. The commits survive for about 90 days and `git show <hash>` keeps working the whole time. Read this paragraph again on the day you need it.
+
+### On GitHub
+
+The kernel does not accept GitHub pull requests and this file tells you repeatedly not to send them. That does not make GitHub useless here: a personal fork gives you an **off-machine backup** and a browsable diff view for your own branches, which a WSL-only tree cannot. Push topic branches to a fork; never open a PR against `torvalds/linux`.
+
+> ⚠ A fork of a public repository is **permanently public** on GitHub, with no option to make it private. Your branch names, commit messages, and the name and email in `git log` are all visible and indexed. Re-read the employer note in [Repo Layout & GitHub Setup](#repo-layout--github-setup) before you push anything you have not thought about.
+
+---
+
+## The C Track: Making "Read C Weekly" Real
+
+This file states that C kernel literacy is non-negotiable, then gives Rust eight structured weeks and gives C the instruction "read a driver." That asymmetry is a mistake, because **every sound Rust abstraction is an argument about what the C on the other side guarantees.** You cannot make that argument from a language you read approximately.
+
+Fold the following into the existing weekly C reading rather than treating it as a separate module.
+
+### The C you actually need
+
+- [ ] **Kernel C is not the C you were taught.** GNU extensions, statement expressions, `typeof`, `__builtin_*`, and macros that generate declarations
+- [ ] **`container_of`** — how the kernel does inheritance and intrusive data structures, and therefore the C idiom that `rust/kernel/list/` exists to hide
+- [ ] **`__attribute__` and the kernel's wrappers:** `__packed`, `__aligned`, `__must_check`, `__init`/`__exit`, `noinline`
+- [ ] **kernel-doc comment format** — the `/** ... */` convention, because your C-side documentation gets reviewed against it
+
+### Sparse: how C encodes the invariants Rust encodes in types
+
+This is the highest-value item in this section, and it appears nowhere else in this file. The kernel annotates pointers with types the compiler ignores and a separate checker enforces:
+
+| Annotation | Means | Its Rust counterpart |
+|------------|-------|----------------------|
+| `__user` | a userspace pointer — never dereference it directly | `UserSlice` |
+| `__iomem` | an MMIO pointer — use accessors, not loads | `Io` / `Devres<Bar0>` |
+| `__rcu` | only dereference inside an RCU read-side critical section | what `rust/kernel/sync/rcu.rs` is still working out |
+| `__percpu` | a per-CPU pointer, not a normal address | the per-CPU work in `rust/kernel` |
+| `__must_check` | the caller may not ignore the return value | `#[must_use]`, and `Result` itself |
+
+Run the checker on code you touch:
+
+```bash
+sudo apt install sparse
+make LLVM=1 C=1 -j"$(nproc)"        # check files being rebuilt
+make LLVM=1 C=2 -j"$(nproc)"        # check everything
+```
+
+**Why this matters specifically for you:** every annotation above is a type invariant that C can only *document* and a tool can only *approximately* enforce. Rust turns each into a real type that the compiler checks. `__user` becomes `UserSlice`; `__iomem` becomes `Io`; `__must_check` becomes `Result`. Reading sparse annotations is reading the safety contract the C author wished they could write down — which makes it the raw material for every abstraction you will design from Month 10 onward.
+
+### `cleanup.h` and `__free()`: C's own answer to `Drop`
+
+Modern kernel C has scope-based cleanup:
+
+```c
+struct foo *f __free(kfree) = kmalloc(sizeof(*f), GFP_KERNEL);
+guard(mutex)(&my_lock);
+```
+
+Read `include/linux/cleanup.h`. This matters twice over. You will meet it in any recent driver, and it is the C community independently arriving at RAII — which sharpens the honest version of your Rust argument. The gap is not "C cannot do cleanup." It is that in C cleanup is opt-in, unenforced, and retrofitted onto three decades of `goto err_free_foo`.
+
+### The reading ladder
+
+Progress deliberately instead of reading whatever you happen to land on:
+
+| When | Read | Looking for |
+|------|------|-------------|
+| Month 1 | `drivers/char/misc.c` | the whole file, every function |
+| Month 1 | one platform driver's `probe`/`remove` | resource acquire/release pairing |
+| Month 2 | `include/linux/cleanup.h`, then a driver using `__free()` | C's RAII, and its limits |
+| Month 3 | `drivers/block/null_blk/` | a complete, real, non-trivial driver |
+| Month 4 | `drivers/pci/probe.c`, `drivers/pci/msi/` | enumeration and MSI-X as they actually work |
+| Month 6 | `kernel/rcu/` header comments + `Documentation/RCU/` | why RCU's contract resists safe wrapping |
+| Month 7 | `fs/romfs/` completely | mount, lookup, read |
+| Month 8 | `drivers/gpu/drm/vkms/` | a minimal, complete DRM driver |
+| Month 10 | **every C function of the subsystem you intend to wrap** | locking rules, lifetime rules, what can fail |
+
+That last row is the one that decides whether Month 10 succeeds.
+
+---
+
+## Retention: Still Knowing Month 2 When You Reach Month 20
+
+Two years at 2-3 hours a day is roughly 1,500 hours and several thousand distinct facts. This file already predicts the problem — *"the bug you hit at 1 a.m. in Month 3 will reappear in Month 11"* — and prescribes a journal. But a journal is write-only. It records; it does not maintain.
+
+Three mechanisms, all cheap:
+
+### 1. A deck, not just a journal
+
+Keep roughly 200 cards (Anki, or plain text you shuffle) covering the facts that are cheap to forget and expensive to look up mid-debug:
+
+- Which GFP flag is legal in which context
+- What `Acquire` and `Release` actually order
+- The `probe()` acquisition order, and the `remove()` teardown order
+- What an RCU read-side critical section does and does not guarantee
+- What `Pin` guarantees, and what it does not
+- The exact `Fixes:` tag format
+- Which sanitizer catches which bug class
+
+**Add a card the second time you look something up.** That trigger is the entire system — no card is ever made speculatively, so the deck only contains things you have personally proven you forget.
+
+### 2. The re-derive drill
+
+Buffer weeks already say "re-derive from memory" in a few places. Make it the default, and always do it **on paper, before opening the tree**:
+
+- Draw the bindings → `rust/kernel` → leaf-driver diagram
+- Write the `probe()`/`remove()` resource ladder
+- State the `dma-fence` signaling rules
+- Write a `// SAFETY:` comment for an `unsafe` block you wrote three months ago without rereading the original, then compare
+
+Whatever you cannot produce cold is what that buffer week is for. The drill is the *diagnostic*; the revision list is the treatment.
+
+### 3. The teach test
+
+You cannot fake explaining something out loud to a person who asks follow-up questions. Once a month, explain one concept to someone real — a colleague, a study group, kernelnewbies, an answer on Zulip. From Month 5 onward, answering a stranger's question publicly counts double: it is retention *and* reputation, and it costs twenty minutes.
+
+> **The honest signal:** if you have to reread your own journal to answer a Month 3 question in Month 12, you learned it once and never maintained it. That is completely normal, it is fixable, and the fix is fifteen minutes a day rather than another month.
+
+---
+
+## When You Fall Behind (You Will)
+
+Most long self-study plans die in month three or four, and they nearly all die the same way: a two-week interruption becomes a gap, the gap becomes guilt, and the guilt makes reopening the file unpleasant enough to avoid. No amount of technical content prevents this, so it gets its own protocol.
+
+You have a full-time job at a hardware company. There will be crunches, on-call, travel, illness, and weeks where 2-3 hours a day simply is not available. Decide how you will handle that now, while it is still theoretical.
+
+### The triage rule
+
+When you have less time than the week demands, cut in exactly this order:
+
+1. **Never cut the boot loop.** If you build and boot nothing this week, the week produced nothing
+2. **Cut the Saturday project's scope, not the Saturday project.** A `v0.1` that boots beats a `v1.0` that is imagined
+3. **Cut Sunday reading to one item.** Choose the in-tree `Documentation/` page over the paper
+4. **Cut breadth, keep the lab.** Skipping a topic costs you a topic; letting the lab rot costs you a week of rebuilding it
+5. **Never cut review responses.** A series with an unanswered comment is a dying series. This outranks everything else in this file, including the schedule
+
+### Minimum viable week
+
+On a genuinely bad week this is enough to stay alive: **build the tree once, boot it once, write three lines in the journal.** Thirty minutes. It preserves the two things that are expensive to rebuild — a working lab and an intact habit.
+
+### Getting back after a real gap
+
+Do not restart, and do not try to catch up.
+
+- [ ] Run `check_setup.sh`. Fix the lab first — a broken lab is the reason gaps continue
+- [ ] Rebuild from clean and boot. Confirm the toolchain still works
+- [ ] Re-read your last three journal entries, not the roadmap
+- [ ] Redo the most recently completed week's lab from memory. It is faster than you fear, and it tells you precisely what you lost
+- [ ] Resume at the week you were on. **Do not** compress two weeks into one to make up time — that is how the gap returns
+- [ ] Move the date, not the content. Nobody but you enforces any deadline in this file
+
+### Deload
+
+Every sixth buffer week, do no new technical work at all. Tidy the journal, update the portfolio, read something adjacent, answer other people's questions. Kernel concepts consolidate during the weeks you are not forcing them.
+
+> **The only real failure mode is stopping permanently.** A month off followed by a return is a rounding error across two years. Treat a gap as a scheduling fact, not a verdict on you.
 
 ---
 
@@ -378,6 +648,91 @@ You already have adjacent work in this workspace. Use it — do not duplicate it
 
 ---
 
+## The Accelerated Computing Angle
+
+> **This roadmap is a Linux kernel roadmap first.** Nothing below dilutes that. But there is a specific
+> intersection worth being deliberate about, because it is where kernel skill becomes disproportionately
+> valuable: **Linux as the operating system underneath accelerated computing.**
+
+Almost nobody occupies that intersection. Plenty of people know CUDA. Plenty of people know kernel
+internals. The number who can explain *why a training run stalls* by reasoning across both — page
+migration, IOMMU translation, NUMA locality, PCIe topology, DMA pinning — is small, and shrinking
+relative to demand.
+
+### The stack you are learning to see through
+
+```text
+   your model / framework                PyTorch, JAX, vLLM
+            │
+   CUDA runtime                          cudaMalloc, streams, events
+            │
+   CUDA driver (userspace)               libcuda, context management
+            │
+   GPU kernel driver                     nvidia.ko / nova / amdgpu
+            │
+   ┌────────────────────────────┐
+   │   L I N U X   K E R N E L  │        ← everything in this roadmap
+   │  mm · sched · dma · iommu  │
+   │  pci · drm · cgroups       │
+   └────────────────────────────┘
+            │
+   PCIe / IOMMU / NVLink                 topology, ACS, peer-to-peer
+            │
+   GPU / accelerator                     HBM, SMs, copy engines
+```
+
+When an inference server has unexplained tail latency, or a multi-GPU job gets half the expected
+bandwidth, or a container mysteriously can't see a device — the answer is almost always in that middle
+box. This roadmap is how you learn to read it.
+
+### Where each layer is covered
+
+| Layer of the stack | Kernel subsystem | Covered in |
+|---|---|---|
+| Device discovery, BARs, MSI-X | PCI | **Month 4** (Weeks 15-16) |
+| Host↔device transfer, pinning, scatter-gather | DMA | **Month 5** (Week 17) |
+| Address translation, isolation, `iommu_map` | IOMMU | **Month 5** (Week 17), Week 17.5 |
+| Page tables, TLB, huge pages, NUMA locality | mm | **Week 17.5** ⭐ new |
+| CPU placement, affinity, isolation, containers | sched, cgroups | **Week 20.5** ⭐ new |
+| Buffer objects, fences, GPU address spaces | DRM | **Month 8** (Weeks 29-32) |
+| The compute path: CUDA → ioctl → driver | DRM uAPI, char devices | **Week 32.5** ⭐ new |
+| An open GPU driver, end to end | nova-core, nova-drm | **Month 9** (Weeks 33-36) |
+| `mmap`, folios, reclaim, shrinkers | mm | **Month 14** (Weeks 55-56) |
+| Unified memory, P2P DMA, GPUDirect, NVLink | HMM, p2pdma | **Week 56.5** ⭐ new |
+| Device passthrough, vGPU, containers | VFIO, virtio | **Month 14** (Weeks 53-54) |
+
+### What was added for this
+
+Four new week-blocks, inserted without renumbering anything, filling the genuine gaps:
+
+- **Week 17.5 — Page Tables, TLB & NUMA.** The memory-translation machinery every accelerator depends
+  on, and why NUMA placement decides whether your bandwidth number is the one on the datasheet.
+- **Week 20.5 — The CPU Scheduler, cgroups & Isolation.** How work gets placed on CPUs, and how
+  containers and cpusets constrain it. This is where "the GPU is idle but the job is slow" gets answered.
+- **Week 32.5 — The GPU Compute Stack.** Following a single `cudaMalloc` from userspace down to an
+  `ioctl` and into the driver. The compute path, as distinct from the graphics path of Month 8.
+- **Week 56.5 — Accelerator Memory.** HMM and unified memory, peer-to-peer DMA between devices,
+  GPUDirect, and PCIe topology as a bandwidth constraint.
+
+Each is a normal week with the same structure as its neighbours: daily topics, a Saturday build, Sunday
+reading. Adding them takes the plan from 78 to roughly 82 weeks.
+
+### How to use this angle
+
+**Do not chase it at the expense of fundamentals.** You cannot reason about GPU memory pinning without
+first understanding DMA, and you cannot understand DMA without understanding the device model. The order
+in this roadmap is the order that works.
+
+What you *should* do is ask one extra question at every stage: **"how does this appear when the device is
+an accelerator?"** The `Documentation/` you read for DMA is the same document an NVIDIA driver engineer
+reads. The only difference is what you are pointing it at.
+
+Your `AI_ML_LLM/` and `CUDA/` tracks are the other half of this. When Month 5 teaches you DMA mapping,
+that is the mechanism behind pinned host memory in PyTorch. When Week 56.5 covers P2P DMA, that is what
+makes `NCCL` fast. Cross-reference deliberately.
+
+---
+
 ## Repo Layout & GitHub Setup
 
 ```text
@@ -392,7 +747,7 @@ LKD_RUST/
 ├── _internal/                 # git-ignored: setup log, env dumps, anything work-confidential
 │   └── README.md              # (the only file here that IS committed)
 ├── theory/                    # the daily notes — written as you study
-│   └── Month_1/Week_1/
+│   └── Month_1/Week_0/
 │       ├── Day_1.md
 │       ├── Day_2.md
 │       ├── activity.md        # the week's runnable Kernel Lab
@@ -401,7 +756,7 @@ LKD_RUST/
 │   ├── README.md
 │   ├── sync_from_repo.sh      # repo -> WSL (pull code to build and run it)
 │   ├── sync_to_repo.sh        # WSL -> repo (push changes back to commit)
-│   └── Month_1/Week_1/
+│   └── Month_1/Week_0/
 │       ├── Day_1/             # install_deps.sh, check_day1.sh, record_env.sh, config examples
 │       └── Day_5/             # check_setup.sh — verify the whole lab
 └── journal/                   # measurements, crashes, submissions
@@ -411,7 +766,7 @@ LKD_RUST/
 ### theory/ and codes/ mirror each other
 
 ```text
-theory/Month_1/Week_1/Day_1.md   <->   codes/Month_1/Week_1/Day_1/
+theory/Month_1/Week_0/Day_1.md   <->   codes/Month_1/Week_0/Day_1/
 ```
 
 The theory file explains what you learned; the code folder holds what you ran. Same coordinates, so you
@@ -479,6 +834,11 @@ because it damages trust you cannot rebuild.
 | Phase 4: Upstream Engineer | 37-52 | 10-13 | Abstractions, security, review, porting, CI, production | ⬜ Not Started |
 | Phase 5: Mastery | 53-64 | 14-16 | Virtualization, advanced MM, major contribution, ecosystem | ⬜ Not Started |
 | Phase 6: Magnum Opus | 65-78 | 17-18 | Signature contribution, portfolio, maintainership path | ⬜ Not Started |
+
+> **On the "Months" column:** those are *content* months, not calendar months. With the 16 buffer weeks
+> included, this is 95 weeks of work before any slippage — see
+> [Timeline: An Honest Accounting](#timeline-an-honest-accounting). Track your position by **week number
+> completed**, never by the date. The sequence is what matters; the calendar is yours to move.
 
 [⬆ Back to Table of Contents](#toc)
 
@@ -1369,7 +1729,7 @@ KernelRustBook expanded into the canonical resource: complete curriculum, CI-ver
 - [x] Boot it the manual way too, with an explicit `qemu-system-x86_64 -kernel ... -append "console=ttyS0" -nographic` command, so you understand what `vng` automates
 - [x] Set up serial console capture to a file so you never lose an oops
 - [x] **Target: edit → build → boot → shell in under 60 seconds.** If it is slower, fix that now, not later
-- [x] **Journal:** your exact boot command lines, saved as scripts in `codes/Month_1/Week_1/Day_3/`
+- [x] **Journal:** your exact boot command lines, saved as scripts in `codes/Month_1/Week_0/Day_3/`
 
 ### Day 4 — Rust Toolchain for the Kernel
 - [ ] Install `rustup`; then install the **exact** `rustc` version the tree wants, plus `rust-src`, `clippy`, `rustfmt`
@@ -1381,6 +1741,13 @@ KernelRustBook expanded into the canonical resource: complete curriculum, CI-ver
 - [ ] **Journal:** the exact toolchain versions that worked, because you will need them again
 
 ### Day 5 — Developer Ergonomics & Upstream Plumbing
+- [ ] **Git discipline for your own work — do this before you edit a single kernel file.** See [Owning Your Work](#owning-your-work-git-discipline-for-a-two-year-project) for the reasoning
+  - [ ] Make a topic branch and understand that `master` is upstream's, not yours: `git checkout -b hello-rust`
+  - [ ] Commit your first change on it and read it back three ways: `git log --oneline`, `git show <hash>`, `git show --stat <hash>`. That hash is your permanent reference to this state
+  - [ ] `git config --global rerere.enabled true` — you will rebase the same patches onto new upstream dozens of times over the next two years
+  - [ ] Practise the recovery path **now, deliberately**: commit on a branch, `git checkout master`, delete the branch with `git branch -D`, then get the work back with `git reflog` and `git checkout -b rescue <hash>`. Do this once while it is a drill and not an emergency
+  - [ ] Read `git worktree --help` and note it for Month 8, when you will want mainline and `drm-rust-next` checked out at the same time without a second 5 GB clone
+  - [ ] Push a topic branch to a personal GitHub fork as an off-machine backup. **Never** open a pull request against `torvalds/linux`, and read the public-fork warning before you push
 - [ ] `make LLVM=1 rust-analyzer` → wire up your editor so you get completion in kernel Rust
 - [ ] `make LLVM=1 rustdoc` → build and *browse* the kernel Rust API docs locally (also online at [rust.docs.kernel.org](https://rust.docs.kernel.org/kernel/))
 - [ ] Configure **`git send-email`** with your SMTP and send yourself a test patch. This blocks every future contribution — do it now
@@ -1391,9 +1758,9 @@ KernelRustBook expanded into the canonical resource: complete curriculum, CI-ver
 
 ### 🔨 Saturday Project
 - [ ] **Lab Bring-Up Report** — `_internal/SETUP_LOG.md` recording: toolchain versions, build times, your boot scripts, and every error you hit with its fix. It lives in `_internal/` because it records the hostname and local paths, so it is git-ignored by design
-- [ ] Write the `codes/Month_1/Week_1/Day_5/check_setup.sh` script that verifies your whole lab in one command
+- [ ] Write the `codes/Month_1/Week_0/Day_5/check_setup.sh` script that verifies your whole lab in one command
 - [ ] Deliberately break something (bad `.config`, wrong rustc version) and confirm your script catches it
-- [ ] **Kernel Lab — `hello_rust`** → full runbook: [`theory/Month_1/Week_1/activity.md`](theory/Month_1/Week_1/activity.md)
+- [ ] **Kernel Lab — `hello_rust`** → full runbook: [`theory/Month_1/Week_0/activity.md`](theory/Month_1/Week_0/activity.md)
   - [ ] **Typed by hand in vim, in four stages**, building and booting after each one: bare module → module parameter → fallible `KVec` allocation + `Drop` → built-in. Stage 1 is 20 minutes and ends with your code in `dmesg`
   - [ ] Write the `Kconfig` entry and the `Makefile` line yourself before using the script that automates them
   - [ ] Build it **both ways** from one source: `=m` and `insmod` it, then `=y` and watch it greet you during boot
@@ -1442,6 +1809,7 @@ KernelRustBook expanded into the canonical resource: complete curriculum, CI-ver
 - [ ] `Makefile` fragments: `obj-$(CONFIG_FOO) += foo.o`, multi-file modules, `ccflags-y`
 - [ ] How a module gets built as `.ko` vs built-in, and what `tristate` really means
 - [ ] **Read C:** pick the simplest real driver you can find (a misc device or a simple platform driver) and read it line by line. Write down every function you do not recognize and look it up
+- [ ] **Start the C track properly** — see [The C Track](#the-c-track-making-read-c-weekly-real). Today: install `sparse`, run `make LLVM=1 C=1` on the files you just touched, and find one `__user` or `__iomem` annotation in real code. Those annotations are C trying to express what Rust's type system expresses for free, and recognizing them is how you will design abstractions in Month 10
 - [ ] **Code:** add a `CONFIG_` option and a stub file to your tree, build it as a module, and load it
 
 ### 🔨 Saturday Project
@@ -1627,15 +1995,31 @@ KernelRustBook expanded into the canonical resource: complete curriculum, CI-ver
 ---
 
 ## 🔄 Buffer Week (Month 1 Revision)
+
+> **The standing buffer-week routine — do these four in every buffer week from here on, before the month-specific items below:**
+> 1. **The re-derive drill, on paper, before opening the tree.** Whatever you cannot produce cold is your revision list — see [Retention](#retention-still-knowing-month-2-when-you-reach-month-20)
+> 2. **Rebuild from clean and boot.** Confirms the lab, the toolchain, and your scripts all still work
+> 3. **30 minutes updating this file** against the current tree — see [Keeping this file honest](#keeping-this-file-honest--a-ritual-not-a-hope)
+> 4. **Respond to any outstanding review.** This outranks everything else here
+>
+> Every sixth buffer week is a **deload**: no new technical work at all.
+
 - [ ] Revise Rust: ownership, borrowing, lifetimes, traits, generics, iterators, error handling, smart pointers
 - [ ] Revise kernel: source layout, Kconfig/Kbuild, device/driver model, module lifecycle, build/boot loop
 - [ ] Re-read your five saved borrow-checker errors and confirm you can explain each without help
 - [ ] Re-read your C misc device bug list — can you now say which ones Rust prevents?
 - [ ] Rebuild your kernel from clean and confirm your times and scripts still work
+- [ ] **Send one genuinely trivial, genuinely real patch — now, not in Month 11.**
+  - [ ] Find something small and true: a typo or grammatical error in `Documentation/`, a `checkpatch --strict` violation in a file you have actually read, or a stale reference in `Documentation/rust/`
+  - [ ] Run the whole pipeline end to end: `git commit -s` → `checkpatch.pl --strict` → `get_maintainer.pl` → `git format-patch` → read it as the maintainer would → `git send-email`
+  - [ ] The patch is not the point. **The point is that the mechanical pipeline is de-risked on something with zero technical stakes**, eleven months before you send anything that matters. Mail threading, trailers, SMTP quirks, whitespace mangling, and Cc lists all fail the first time, and you want them failing on a typo fix
+  - [ ] Whatever happens, reply to every response. If it is ignored, wait 7-10 days and ping once. Both outcomes teach you something you need
+  - [ ] Read `UPSTREAM.md` before you send, and record the `lore` link in your journal
 - [ ] **Build Monthly Project A:** KernelForge — One-Command Rust Kernel Lab
 - [ ] **Build Monthly Project B:** RustScope — Kernel Rust Adoption Tracker
 - [ ] Push both projects to GitHub with real READMEs
 - [ ] **Gate check:** clean tree to booted Rust-enabled kernel in under 15 minutes, one command
+- [ ] **Gate check:** you have sent a real patch to a real kernel mailing list and the mechanics worked
 
 ---
 
@@ -1833,12 +2217,19 @@ KernelRustBook expanded into the canonical resource: complete curriculum, CI-ver
 - [ ] `cargo expand` equivalents: how to see what `module!` expands to
 - [ ] Why the kernel writes its own macros instead of pulling crates from crates.io — the "no external dependencies" rule
 - [ ] **Code:** write a small declarative macro of your own that reduces boilerplate in your register parser
+- [ ] **Code:** then write an actual *procedural* macro (userspace, with `syn`/`quote`) that generates a typed register accessor from an attribute. Kernel Rust is macro-heavy and `rust/macros/` is proc macros throughout — reading them is not the same skill as writing one, and Month 9's Nova register tooling is exactly this problem
 
 ### Day 5 — Build a Rust Module From Scratch, Properly
 - [ ] Create a new `samples/rust`-style module in your tree: Kconfig entry, Makefile entry, `.rs` file
 - [ ] `module!` with authors, description, license; module parameters
 - [ ] Init returning `Result`; correct teardown in `Drop`
 - [ ] Build it, load it, unload it, and verify no leaks with `kmemleak`
+- [ ] **Prove the no-panic rule instead of asserting it.** This file repeats "kernel Rust must not panic" a dozen times and never once checks. Check:
+  ```bash
+  nm samples/rust/your_module.ko | grep -iE 'panic|unwrap|begin_unwind'
+  ```
+  A reference to `core::panicking` or `rust_begin_unwind` means you have a reachable panic path — usually an `unwrap()`, an `expect()`, a slice index, or an arithmetic operation that can overflow. Find it and remove it
+- [ ] Deliberately add an `unwrap()` on a `None`, rebuild, and confirm the symbol appears. Now you have a check you can run on every module you ever write, and a reason to trust it
 - [ ] **Code:** deliberately return an error from init and confirm the kernel handles it cleanly
 
 ### 🔨 Saturday Project
@@ -2373,6 +2764,70 @@ KernelRustBook expanded into the canonical resource: complete curriculum, CI-ver
 
 ---
 
+## Week 17.5 — Page Tables, TLB & NUMA ⚡
+
+> ⚡ **Accelerated-computing week.** The address-translation machinery every device sits behind, and the
+> memory-locality rules that decide whether you get datasheet bandwidth or half of it. Week 17 taught you
+> the DMA *API*; this week is the hardware and kernel machinery underneath it.
+
+### Day 1 — Virtual Memory and Page Tables
+- [ ] The four-level x86-64 page table walk: PGD → P4D → PUD → PMD → PTE, and what each level covers
+- [ ] `CR3`, per-process page tables, and what a context switch actually swaps
+- [ ] Page table entries: present, writable, user, NX, dirty, accessed bits
+- [ ] Kernel vs user address space split; the direct map (`page_offset_base`) and why it exists
+- [ ] `virt_to_phys`, `phys_to_virt`, and why they are only valid for the direct map
+- [ ] **Code:** walk your own process's page tables via `/proc/self/pagemap`; resolve a virtual address to a physical frame
+
+### Day 2 — TLB, and Why Translation Is a Performance Problem
+- [ ] The TLB as a cache of translations; hit cost vs miss cost vs full page-table walk
+- [ ] TLB shootdown: why changing a mapping requires an IPI to every CPU that might have cached it
+- [ ] `flush_tlb_*` family, and why unmapping is far more expensive than mapping
+- [ ] ASIDs / PCID: avoiding a full flush on context switch
+- [ ] The accelerator angle: a GPU has its **own** MMU and its own TLB. `iommu_map` changes translations that *two* devices cache
+- [ ] **Code:** measure TLB miss cost with `perf stat -e dTLB-load-misses` on a random-access workload
+
+### Day 3 — Huge Pages
+- [ ] Why 4 KB pages hurt at scale: one TLB entry per page, and a 40 GB model is 10 million pages
+- [ ] 2 MB and 1 GB pages; `HugeTLB` (explicit, reserved) vs THP (transparent, opportunistic)
+- [ ] THP modes: `always`, `madvise`, `never`, and why databases and ML runtimes often disable it
+- [ ] Fragmentation, compaction, and `khugepaged`
+- [ ] Huge pages and DMA: fewer, larger scatter-gather entries — directly why they matter for accelerators
+- [ ] **Code:** allocate with and without `MADV_HUGEPAGE`; measure TLB misses and page-fault counts for both
+
+### Day 4 — NUMA
+- [ ] What NUMA is: memory attached to *a* socket, not to *the* machine; local vs remote latency and bandwidth
+- [ ] `numactl --hardware`, node distances, and reading a real topology
+- [ ] Allocation policies: default/local, bind, interleave, preferred
+- [ ] `mbind`, `set_mempolicy`, and the kernel side in `mm/mempolicy.c`
+- [ ] **The accelerator point:** a GPU hangs off a PCIe root complex owned by one socket. Host memory on the *wrong* node means every DMA crosses the interconnect — commonly a 30-50% bandwidth loss for no visible reason
+- [ ] `/sys/class/pci_bus/*/device/numa_node` and `/sys/bus/pci/devices/*/local_cpulist`
+- [ ] **Code:** find which NUMA node your GPU (or any PCIe device) is attached to, then measure a DMA-style memcpy from local vs remote memory
+
+### Day 5 — Page Migration and Reclaim Interactions
+- [ ] Page migration: moving a physical page while a process keeps using it, and why that is hard
+- [ ] `migrate_pages`, AutoNUMA balancing, and when the kernel moves your data without asking
+- [ ] **Why pinning exists:** a DMA-mapped page must not move. `pin_user_pages` vs `get_user_pages`
+- [ ] The conflict this creates: pinned memory cannot be migrated, compacted, or reclaimed
+- [ ] `RLIMIT_MEMLOCK`, and why large pinned allocations fail in containers
+- [ ] **Code:** pin a large buffer, then observe that compaction and migration can no longer touch it
+
+### 🔨 Saturday Project
+- [ ] **NumaScope** — a tool that reports the memory-locality picture for any PCIe device
+  - [ ] For each device: its NUMA node, local CPU list, and IOMMU group
+  - [ ] Measure and report local vs remote bandwidth to that device's node
+  - [ ] Flag misconfigurations: device on node 0, process bound to node 1
+  - [ ] Report huge-page and THP state, and pinned-memory limits
+  - [ ] **The point:** this is the tool you would reach for when an inference server is mysteriously slow
+
+### 📄 Sunday Reading
+- [ ] `Documentation/mm/numa.rst` and `Documentation/admin-guide/mm/numa_memory_policy.rst`
+- [ ] `Documentation/admin-guide/mm/transhuge.rst` — THP, and why people disable it
+- [ ] `Documentation/core-api/pin_user_pages.rst` — **essential** for accelerator work
+- [ ] `Documentation/mm/page_migration.rst`
+- [ ] Optional: "What every programmer should know about memory" (Drepper) — Part 3 on TLB and NUMA
+
+---
+
 ## Week 18 — I2C, SPI, GPIO, clk, regulator, PWM
 
 ### Day 1 — I2C
@@ -2521,6 +2976,70 @@ KernelRustBook expanded into the canonical resource: complete curriculum, CI-ver
 - [ ] `Documentation/power/runtime_pm.rst` — the whole thing
 - [ ] `Documentation/power/suspend-and-interrupts.rst` and `pm_qos_interface.rst`
 - [ ] `Documentation/process/submit-checklist.rst` — again, now that it means something
+
+---
+
+## Week 20.5 — The CPU Scheduler, cgroups & Isolation ⚡
+
+> ⚡ **Accelerated-computing week.** Where work gets placed on CPUs, and how containers constrain it.
+> This is the subsystem that answers *"the GPU shows 30% utilisation but the job is slow"* — usually the
+> answer is a CPU-side data-loading problem, a NUMA misplacement, or a cgroup quota nobody knew about.
+
+### Day 1 — How the Scheduler Works
+- [ ] Scheduling classes and their order: stop → deadline → realtime → **fair (EEVDF/CFS)** → idle
+- [ ] The fair scheduler's job: allocate CPU time proportionally, not equally. `nice`, weights, vruntime/lag
+- [ ] Runqueues are **per-CPU**; `schedule()`, context switch cost, and where preemption happens
+- [ ] Preemption models: `PREEMPT_NONE`, `VOLUNTARY`, `PREEMPT`, `PREEMPT_RT` — and the tradeoff each makes
+- [ ] `CONFIG_HZ`, tickless (`NO_HZ_FULL`), and why a busy CPU still takes timer interrupts
+- [ ] **Code:** `perf sched record` / `perf sched latency` on a loaded system; find who is waiting and why
+
+### Day 2 — Placement: Affinity, Load Balancing, NUMA
+- [ ] `sched_setaffinity`, `taskset`, and pinning a thread to a CPU
+- [ ] Load balancing across runqueues, and **why the scheduler will move your thread away from your data**
+- [ ] Scheduling domains and how the kernel models cache/NUMA topology
+- [ ] AutoNUMA balancing: the kernel migrating pages *and* tasks to co-locate them
+- [ ] **The accelerator point:** the thread feeding a GPU should run on a CPU local to that GPU's NUMA node (Week 17.5). Load balancing can silently undo that
+- [ ] **Code:** pin a DMA-heavy workload to a local vs remote CPU and measure the difference
+
+### Day 3 — cgroups v2
+- [ ] What cgroups are: hierarchical resource control for groups of processes
+- [ ] The unified hierarchy at `/sys/fs/cgroup`; controllers as files, not syscalls
+- [ ] `cpu` controller: `cpu.weight`, and `cpu.max` — **quota-based throttling**, the classic hidden latency source
+- [ ] `memory` controller: `memory.max`, `memory.high`, and what OOM inside a cgroup looks like
+- [ ] `cpuset` controller: `cpuset.cpus`, `cpuset.mems` — constraining CPUs *and* NUMA nodes
+- [ ] `io` and `pids` controllers, briefly
+- [ ] **Code:** create a cgroup, set `cpu.max`, and watch a busy loop get throttled. Read `cpu.stat` to see the throttling counters
+
+### Day 4 — Containers Are Just cgroups + Namespaces
+- [ ] Namespaces: pid, mount, net, user, ipc, uts — and what each isolates
+- [ ] A container = namespaces (what you can *see*) + cgroups (what you can *use*). There is no "container" object in the kernel
+- [ ] Device access inside containers: `devices` control, and how a GPU gets exposed via `/dev`
+- [ ] **The accelerator point:** why `--gpus all` needs device nodes, driver version matching, and `RLIMIT_MEMLOCK` for pinned memory
+- [ ] Why pinned host memory allocation fails in containers with default limits (ties to Week 17.5 Day 5)
+- [ ] **Code:** run a workload in a cgroup with a low `memory.max` and a low memlock limit; reproduce both failure modes
+
+### Day 5 — Isolation and Latency
+- [ ] `isolcpus`, `nohz_full`, `rcu_nocbs` — removing CPUs from the general-purpose pool
+- [ ] IRQ affinity: `/proc/irq/*/smp_affinity`, and keeping device interrupts off your latency-critical cores
+- [ ] Why an interrupt on the wrong CPU causes tail latency in an inference server
+- [ ] Realtime basics: `SCHED_FIFO`, priority inversion, and why RT is rarely the right answer
+- [ ] `cyclictest` and measuring scheduling latency honestly
+- [ ] **Code:** isolate a CPU, move all IRQs off it, and measure the latency improvement on a pinned workload
+
+### 🔨 Saturday Project
+- [ ] **PlacementLens** — a diagnostic tool for "why is this slow when the device isn't busy?"
+  - [ ] For a given PID: its CPU affinity, actual CPU residency, NUMA node, and cgroup limits
+  - [ ] For a given device: its NUMA node, IRQ affinity, and which CPUs handle its interrupts
+  - [ ] Detect and report the classic misconfigurations: thread on a remote node, IRQs landing on the worker CPU, a `cpu.max` quota being hit, memlock limit too low for the pinned buffers in use
+  - [ ] Read the throttling counters from `cpu.stat` and report them plainly
+  - [ ] **Publish it.** "Why is my GPU job slow" is a question with no good tooling and a large audience
+
+### 📄 Sunday Reading
+- [ ] `Documentation/scheduler/sched-design-CFS.rst` and `sched-domains.rst`
+- [ ] `Documentation/admin-guide/cgroup-v2.rst` — long, and the single most useful document here
+- [ ] `Documentation/admin-guide/kernel-per-CPU-kthreads.rst` — the isolation checklist
+- [ ] `Documentation/core-api/irq/irq-affinity.rst`
+- [ ] Paper: "The Linux Scheduler: A Decade of Wasted Cores" (EuroSys 2016) — load balancing bugs that cost real performance
 
 ---
 
@@ -2976,6 +3495,57 @@ KernelRustBook expanded into the canonical resource: complete curriculum, CI-ver
 
 ---
 
+## Week 32.5 — The GPU Compute Stack ⚡
+
+> ⚡ **Accelerated-computing week.** Weeks 29-32 covered the *graphics* path: modesetting, framebuffers,
+> Vulkan. This week follows the **compute** path instead — what actually happens when a training script
+> calls `cudaMalloc` and `cudaMemcpy`. Same driver, same kernel, different uAPI usage.
+>
+> This is the week that connects your `CUDA/` and `AI_ML_LLM/` tracks to everything else here.
+
+### Topics
+- [ ] The full descent, layer by layer: `torch.cuda` → CUDA runtime → CUDA driver (`libcuda`) → `ioctl` on a device node → kernel driver → PCIe → GPU
+- [ ] Why it bottoms out at **`ioctl` on a character device**. Everything you learned in Month 3 is the mechanism
+- [ ] Device nodes: `/dev/nvidia*`, `/dev/nvidiactl`, `/dev/dri/renderD*` — which is which, and why compute mostly uses render nodes
+- [ ] `cudaMalloc` on the kernel side: a buffer object allocation, a GPU virtual address, and a page-table entry in the GPU's own MMU
+- [ ] `cudaMemcpy` on the kernel side: DMA, and whether the source was pinned (fast path) or not (staging-buffer copy)
+- [ ] **Pinned vs pageable host memory** — the single most consequential performance decision, and it is `pin_user_pages` (Week 17.5) underneath
+- [ ] Streams and events mapped onto kernel concepts: command submission queues, and `dma-fence`-style completion signalling
+- [ ] Doorbells and ring buffers: how userspace submits work without a syscall per operation
+- [ ] Why command submission is designed to avoid the kernel on the hot path, and what the kernel still must do
+- [ ] Context management: per-process GPU address spaces, isolation between processes on one GPU
+- [ ] GPU faults: what happens on an illegal access, how a driver reports it, and what "Xid error" means
+- [ ] GPU reset and recovery; why a hung kernel-mode driver takes the whole GPU down
+- [ ] Multi-process on one GPU: time-slicing, MPS, and MIG as three different answers
+- [ ] The proprietary vs open picture: `nvidia.ko` and its userspace, versus `nova` + Mesa. What is knowable from public sources for each
+
+### Code Exercises
+- [ ] `strace -f -e trace=ioctl` a trivial CUDA program. Count the ioctls; identify the setup phase versus the steady state
+- [ ] `ls -l /dev/nvidia* /dev/dri/` and map each node to what opens it
+- [ ] Write a minimal CUDA program that allocates, copies, and frees. Trace which ioctls correspond to which line
+- [ ] Compare pinned (`cudaHostAlloc`) versus pageable host memory: measure bandwidth, and trace the different kernel paths
+- [ ] Read `drivers/gpu/drm/` command-submission code for an open driver (amdgpu or nova) and identify the submit ioctl
+- [ ] Use `ftrace` to observe DMA mapping calls while a GPU workload runs
+- [ ] Read the `nova-drm` IOCTLs again with compute eyes — `GEM_CREATE` is `cudaMalloc`'s distant relative
+- [ ] Deliberately trigger a GPU fault and read how the driver reports it
+
+### 🔨 Saturday Project
+- [ ] **CudaTrace** — a tool that makes the userspace-to-kernel GPU path legible
+  - [ ] Trace a CUDA (or OpenCL/Vulkan-compute) process and produce a timeline of ioctls by category: allocation, mapping, submission, synchronisation
+  - [ ] Correlate each with the corresponding kernel-side DMA and driver activity via tracepoints
+  - [ ] Report pinned versus pageable transfers, and the measured bandwidth of each
+  - [ ] Annotate with the NUMA node of the device and of the calling thread (reusing NumaScope from Week 17.5)
+  - [ ] **The deliverable:** one picture showing a framework call descending through every layer of the stack. Almost nobody has seen this drawn from real data
+
+### 📄 Sunday Reading
+- [ ] `Documentation/gpu/drm-uapi.rst` — read it again, this time asking "how would compute use this?"
+- [ ] `Documentation/core-api/pin_user_pages.rst` — the mechanism behind pinned host memory
+- [ ] NVIDIA's open-gpu-kernel-modules repository README and architecture notes — public, and directly relevant
+- [ ] Any public talk on GPU command submission or the CUDA driver architecture
+- [ ] Your own `CUDA/` notes: re-read them from the kernel side and write down what you now understand differently
+
+---
+
 ## 🔄 Buffer Week (Month 8 Revision)
 - [ ] Revise DRM/KMS: the object model, atomic modesetting, vblank, dumb buffers
 - [ ] Revise GEM, `dma-buf`, `dma-fence`, `dma_resv`, the DRM scheduler, GPUVM/VM_BIND
@@ -2993,6 +3563,37 @@ KernelRustBook expanded into the canonical resource: complete curriculum, CI-ver
 > `drivers/gpu/nova-core/`, the documentation at [docs.kernel.org/gpu/nova/](https://docs.kernel.org/gpu/nova/),
 > the patch archives on `lore.kernel.org` and `lore.freedesktop.org`, and Nouveau's reverse-engineering
 > documentation. Work only from these.
+
+> ### ⚠ Read this before your first Nova commit — it is specific to you
+>
+> Nova is a driver for **your employer's hardware**, and you are an NVIDIA employee. That is a genuine
+> advantage and the single highest-risk situation in this entire roadmap. The general employer guidance
+> in [Repo Layout & GitHub Setup](#repo-layout--github-setup) is not sufficient here. Resolve all of the
+> following **in writing, before you send a Nova patch** — not after:
+>
+> - [ ] **Whose work is it?** Establish explicitly whether Nova contributions are personal work or company
+>   work product. The answer determines whose copyright it carries, which email address belongs in
+>   `Signed-off-by:`, and who has authority to approve it. Guessing here is the mistake you cannot undo,
+>   because `Signed-off-by:` is a legal certification under the DCO and the mailing list is a permanent
+>   public record
+> - [ ] **Get approval through the real channel.** Your manager and NVIDIA's open-source program office,
+>   not a colleague's opinion. Ask for it in email so it exists later
+> - [ ] **Understand the contamination risk precisely.** You may have access to internal GPU documentation
+>   that the Nouveau and Nova communities reverse-engineered without. Internal material may help you
+>   *understand* a device. It must never appear — not in code, not in a register name, not in a comment,
+>   not in a commit message, not in a list reply, not in a Zulip message. If a fact reached you internally
+>   and you cannot also point at a public source for it, treat it as unusable
+> - [ ] **Keep the provenance trail.** For anything non-obvious you contribute, be able to name the public
+>   source it came from: the upstream code, `docs.kernel.org/gpu/nova/`, a `lore` thread, or Nouveau's
+>   documentation. A patch whose provenance cannot be explained is worse than no patch, because it damages
+>   trust — yours and NVIDIA's — that you cannot rebuild
+> - [ ] **Decide the boundary before it is tested.** "My learning project" and "company work" need an
+>   explicit, agreed line. It will be tested the first time something you built on your own evenings turns
+>   out to be useful at work, or vice versa
+>
+> If any of this is unresolved when you reach Month 9, do the **documentation and tooling** work — which is
+> derived purely from public source you can read — and hold the code contributions until it is settled.
+> Asking is cheap. A provenance dispute involving your employer's GPU driver is not.
 
 ### Topics
 - [ ] Nova's place in the world: the Rust successor to Nouveau for GSP-based NVIDIA GPUs
@@ -3216,7 +3817,9 @@ KernelRustBook expanded into the canonical resource: complete curriculum, CI-ver
 - [ ] Find a real bug in a recent commit and write a correct `Fixes:` tag for it
 - [ ] Bisect a deliberately-introduced regression with `git bisect run` and your KernelForge boot test
 - [ ] Read `linux-next` merge conflict reports and understand what causes them
-- [ ] Send one genuinely trivial but real patch (a documentation fix, a `checkpatch` cleanup) through the full process, end to end
+- [ ] **`git range-diff` — the v2 tool.** Take a series of yours, revise it, and run `git range-diff base..v1 base..v2`. This is how you write a truthful per-patch changelog, and it is what a reviewer runs to check whether you actually changed what you claimed. Never send a v2 without reading its range-diff first
+- [ ] **`git worktree`** — add a second tree for your target subsystem's branch (`git worktree add ../linux-drm drm/drm-next`) so you can build two trees without a second clone. From here on you are tracking several trees at once
+- [ ] You sent your first trivial patch in the Month 1 buffer week, so the mechanics are already proven. **This time send something technical** — a real fix, a test, or a small cleanup you can defend on its merits — and drive it through review to a conclusion
 
 ### 🔨 Saturday Projects
 - [ ] **Week 41:** PatchPilot v0.5 — `check`, `recipients`, and `cover` commands working against your own branches
@@ -3542,6 +4145,74 @@ KernelRustBook expanded into the canonical resource: complete curriculum, CI-ver
 
 ---
 
+## Week 56.5 — Accelerator Memory: HMM, P2P DMA, GPUDirect ⚡
+
+> ⚡ **Accelerated-computing week.** The memory features that exist specifically because accelerators
+> exist. Week 55-56 covered generic kernel memory management; this is the part built for devices with
+> their own memory and their own MMU.
+>
+> Everything here rests on Week 17.5 (page tables, NUMA, pinning) and Week 32.5 (the compute path).
+
+### Topics
+
+**Device memory as kernel-managed memory**
+- [ ] `ZONE_DEVICE`: making device memory appear as `struct page`, so the kernel's machinery works on it
+- [ ] `devm_memremap_pages`, and why a GPU's HBM can be given page structs at all
+- [ ] `MEMORY_DEVICE_PRIVATE` vs `MEMORY_DEVICE_COHERENT` vs `MEMORY_DEVICE_FS_DAX`
+
+**HMM and unified memory**
+- [ ] Heterogeneous Memory Management: one virtual address space shared between CPU and device
+- [ ] How a device page fault becomes a kernel page fault, and migration happens transparently
+- [ ] `hmm_range_fault`, MMU notifiers, and keeping two page tables coherent
+- [ ] What CUDA Unified Memory actually is on the kernel side, and its cost model
+- [ ] When unified memory is the wrong answer: thrashing, and why explicit copies often win
+
+**Peer-to-peer DMA**
+- [ ] `p2pdma`: one PCIe device DMA-ing directly into another's memory, bypassing host RAM entirely
+- [ ] The topology requirement: both devices under a root complex/switch that permits it
+- [ ] **ACS (Access Control Services)** — the setting that silently disables P2P for security reasons
+- [ ] Why GPU-to-GPU transfer bandwidth varies enormously with which slots the cards are in
+- [ ] `pci_p2pdma_distance`, and how the kernel decides whether P2P is possible
+
+**GPUDirect and the RDMA path**
+- [ ] GPUDirect RDMA: a network card DMA-ing straight into GPU memory. What the kernel must provide
+- [ ] `dma-buf` as the general cross-device sharing mechanism, revisited from Month 8 with compute in mind
+- [ ] GPUDirect Storage: NVMe to GPU without staging through host memory
+- [ ] Why all of this depends on IOMMU configuration, and how it breaks under passthrough
+
+**Interconnect and topology**
+- [ ] Reading PCIe topology: `lspci -tv`, link speed/width, and where the bottleneck actually is
+- [ ] NVLink and similar interconnects: what the kernel knows about them and what it does not
+- [ ] Why a topology-aware allocation is a correctness concern for NCCL-style collectives, not just a tuning one
+
+### Code Exercises
+- [ ] Map your machine's full PCIe topology; identify root complexes, switches, and each device's NUMA node
+- [ ] Check ACS state on your PCIe bridges and determine whether P2P would be permitted
+- [ ] Read `drivers/pci/p2pdma.c` and trace how the kernel decides two devices can talk directly
+- [ ] Read the HMM implementation in `mm/hmm.c` and follow one device fault through it
+- [ ] Read an MMU notifier registration in a real driver; explain what invalidation it must handle
+- [ ] Measure host-to-device bandwidth pinned vs pageable, local NUMA node vs remote — four numbers
+- [ ] If you have two GPUs: measure P2P versus staged-through-host transfer
+- [ ] Trace `dma-buf` import/export between two devices with ftrace
+
+### 🔨 Saturday Project
+- [ ] **TopoBench** — a topology-aware transfer benchmark and diagnostic
+  - [ ] Enumerate all accelerators and NICs with their PCIe path, link speed/width, NUMA node, and IOMMU group
+  - [ ] Build a bandwidth matrix: host↔device for every NUMA node combination, and device↔device where possible
+  - [ ] Detect and report what is *limiting* each path: link width, ACS blocking P2P, remote NUMA, unpinned memory
+  - [ ] Output an annotated topology diagram with measured numbers on each edge
+  - [ ] **Why this matters:** every multi-GPU performance question starts with "what does the topology allow?", and answering it currently means reading `lspci` output by hand
+
+### 📄 Sunday Reading
+- [ ] `Documentation/mm/hmm.rst` — the whole document. This is the canonical explanation of unified memory
+- [ ] `Documentation/driver-api/pci/p2pdma.rst`
+- [ ] `Documentation/driver-api/dma-buf.rst` — third read, now with cross-device compute in mind
+- [ ] `Documentation/PCI/pci-error-recovery.rst` and the ACS material in `Documentation/PCI/`
+- [ ] Paper or talk on GPUDirect RDMA architecture; the public NVIDIA docs are decent here
+- [ ] Optional but recommended: re-read your `AI_ML_LLM` notes on multi-GPU training and identify which kernel mechanism each performance claim depends on
+
+---
+
 ## 🔄 Buffer Week (Month 14 Revision)
 - [ ] Revise virtualization: virtio rings and barriers, hostile-host hardening, VFIO, KVM concepts
 - [ ] Revise memory management: pages/folios, VMAs, `mmap`, fault handling, shrinkers, reclaim, OOM
@@ -3767,6 +4438,11 @@ Pick ONE option from the [Magnum Opus catalog](#month-17-18-project-magnum-opus-
 - [ ] `rust/macros/` — how `module!`, `#[vtable]`, and `#[pin_data]` work
 
 ### In-tree C — read these to build C literacy
+
+See [The C Track](#the-c-track-making-read-c-weekly-real) for the ordered ladder and the sparse annotations.
+
+- [ ] `include/linux/cleanup.h` — `__free()` and `guard()`: C's own scope-based cleanup, and the honest comparison point for every RAII argument you will make
+- [ ] `include/linux/compiler_types.h` — where `__user`, `__iomem`, `__rcu` and `__percpu` are actually defined. Each is an invariant C can only annotate and Rust can enforce
 - [ ] `drivers/char/misc.c` — the misc device layer you will build on
 - [ ] `drivers/block/null_blk/` — the C reference for BlockForge
 - [ ] `drivers/gpu/drm/vkms/` — the minimal C DRM driver; TinyDRM's reference

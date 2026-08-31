@@ -1,4 +1,4 @@
-# M1W1D2 — Clone and Build Mainline ✅ COMPLETED
+# M1W0D2 — Clone and Build Mainline ✅ COMPLETED
 
 > **Completed:** 2026-08-15. Kernel **7.2.0-rc7** at `3eb40771c00a`, full history, 4 remotes.
 > `defconfig` = 5,473 lines / 1,631 built-in / 15 modules. **0 warnings.**
@@ -427,7 +427,7 @@ make menuconfig
 ```bash
 cd "$LINUX_TREE"
 ccache -z                                   # zero the stats so today's numbers are clean
-time make -j"$(nproc)" 2>&1 | tee ~/LKD_RUST/Month_1/Week_1/build1.log
+time make -j"$(nproc)" 2>&1 | tee ~/LKD_RUST/Month_1/Week_0/build1.log
 ```
 
 Watch the stage prefixes go by — `CC`, `AR`, `LD`, `MODPOST`, `KSYMS`, `BTF`, `BUILD`. You are
@@ -445,7 +445,7 @@ du -sh --exclude=.git .
 df -h "$HOME" | tail -1
 
 # Warnings — should be few or none on a clean defconfig
-grep -ciE 'warning:' ~/LKD_RUST/Month_1/Week_1/build1.log
+grep -ciE 'warning:' ~/LKD_RUST/Month_1/Week_0/build1.log
 
 # ccache after a cold build: near-zero hits, cache populated
 ccache -s | head -12
@@ -471,7 +471,7 @@ straight back.
 ### Phase 7 — Record it
 
 ```bash
-bash ~/LKD_RUST/codes/Month_1/Week_1/Day_2/check_day2.sh
+bash ~/LKD_RUST/codes/Month_1/Week_0/Day_2/check_day2.sh
 ```
 
 Then fill in the table below from what you measured.
@@ -586,6 +586,6 @@ The largest subsystem by size, and by how much:
 
 ---
 
-**Next:** M1W1D3 — The Fast Boot Loop. You boot what you built, get a shell inside your own kernel,
+**Next:** M1W0D3 — The Fast Boot Loop. You boot what you built, get a shell inside your own kernel,
 and get the edit-build-boot cycle under 60 seconds. That loop is the single biggest determinant of how
 much you actually learn in the next 18 months.

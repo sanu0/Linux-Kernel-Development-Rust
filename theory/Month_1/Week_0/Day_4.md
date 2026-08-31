@@ -1,4 +1,4 @@
-# M1W1D4 — The Rust Toolchain
+# M1W0D4 — The Rust Toolchain
 
 > **Goal:** get `make LLVM=1 rustavailable` to say yes, enable `CONFIG_RUST`, build a Rust-enabled
 > kernel, and load a Rust kernel module — watching it print into `dmesg`.
@@ -524,8 +524,8 @@ learning them today — you are learning where they live.
 ### Phase 9 — Record it
 
 ```bash
-bash ~/LKD_RUST/codes/Month_1/Week_1/Day_4/check_day4.sh
-bash ~/LKD_RUST/codes/Month_1/Week_1/Day_1/record_env.sh
+bash ~/LKD_RUST/codes/Month_1/Week_0/Day_4/check_day4.sh
+bash ~/LKD_RUST/codes/Month_1/Week_0/Day_1/record_env.sh
 ```
 
 ---
@@ -790,6 +790,6 @@ link errors that look like source bugs.
 
 ---
 
-**Next:** M1W1D5 — Developer Ergonomics & Upstream Plumbing. `git send-email` verified end to end, `b4`,
+**Next:** M1W0D5 — Developer Ergonomics & Upstream Plumbing. `git send-email` verified end to end, `b4`,
 `checkpatch.pl`, `get_maintainer.pl`, and subscribing to the lists. Less glamorous than today, and it is
 what makes contribution possible at all — Week 0 ends with your lab genuinely complete.

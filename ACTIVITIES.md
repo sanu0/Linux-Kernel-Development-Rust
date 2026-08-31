@@ -105,9 +105,9 @@ Saturday Project's runbook.
 ## Where Activities Live
 
 ```text
-theory/Month_1/Week_1/activity.md      <- the runbook you follow
-codes/Month_1/Week_1/Day_4/*.rs        <- the source, version controlled
-codes/Month_1/Week_1/Day_4/install_*.sh <- wires it into $LINUX_TREE
+theory/Month_1/Week_0/activity.md      <- the runbook you follow
+codes/Month_1/Week_0/Day_4/*.rs        <- the source, version controlled
+codes/Month_1/Week_0/Day_4/install_*.sh <- wires it into $LINUX_TREE
 ```
 
 The pattern from Week 0, unchanged:
@@ -160,7 +160,7 @@ a module?" is not.
 
 | Week | Activity | Status |
 |---|---|---|
-| 0 | [Hello World From Inside Your Own Rust Kernel](theory/Month_1/Week_1/activity.md) | **written** |
+| 0 | [Hello World From Inside Your Own Rust Kernel](theory/Month_1/Week_0/activity.md) | **written** |
 | 1 | `drop_order` — Drop order where it matters | pending |
 | 2 | `trait_regs` — traits as kernel vtables | pending |
 | 3 | `raii_probe` — the teardown ladder, deleted | pending |

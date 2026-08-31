@@ -1,11 +1,11 @@
 #!/bin/bash
-# M1W1D1 — install everything needed to build the Linux kernel with Rust support.
+# M1W0D1 — install everything needed to build the Linux kernel with Rust support.
 #
 # Safe to re-run: apt install is idempotent, and the ccache/PATH steps check before appending.
 #
 # Usage:  bash install_deps.sh
 #
-# See ../../../../theory/Month_1/Week_1/Day_1.md for what each package is actually for.
+# See ../../../../theory/Month_1/Week_0/Day_1.md for what each package is actually for.
 
 set -euo pipefail
 
@@ -80,10 +80,10 @@ add_to_bashrc '/usr/lib/ccache' \
 say "Creating the working directories"
 mkdir -p "$HOME/LKD_RUST/kernel"
 mkdir -p "$HOME/LKD_RUST/codes"
-mkdir -p "$HOME/LKD_RUST/Month_1/Week_1"
+mkdir -p "$HOME/LKD_RUST/Month_1/Week_0"
 echo "  $HOME/LKD_RUST/kernel          <- kernel trees (never committed to git)"
 echo "  $HOME/LKD_RUST/codes           <- scripts synced from the Windows repo"
-echo "  $HOME/LKD_RUST/Month_1/Week_1  <- scratch space for this week's experiments"
+echo "  $HOME/LKD_RUST/Month_1/Week_0  <- scratch space for this week's experiments"
 
 say "Recording paths in ~/.bashrc"
 

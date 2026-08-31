@@ -1,13 +1,13 @@
 #!/bin/bash
-# M1W1D1 — dump the machine and toolchain state to a file.
+# M1W0D1 — dump the machine and toolchain state to a file.
 #
 # Run this today, and again any time something mysteriously stops working. Diffing two of these
 # files is often the fastest way to find out what changed underneath you.
 #
 # Usage:  bash record_env.sh [output-file]
-# Default output: ~/LKD_RUST/Month_1/Week_1/env_day1.txt
+# Default output: ~/LKD_RUST/Month_1/Week_0/env_day1.txt
 
-OUT="${1:-$HOME/LKD_RUST/Month_1/Week_1/env_day1.txt}"
+OUT="${1:-$HOME/LKD_RUST/Month_1/Week_0/env_day1.txt}"
 mkdir -p "$(dirname "$OUT")"
 
 ver() { command -v "$1" > /dev/null 2>&1 && "$1" --version 2>&1 | head -1 || echo "$1: NOT INSTALLED"; }
@@ -87,4 +87,4 @@ ver() { command -v "$1" > /dev/null 2>&1 && "$1" --version 2>&1 | head -1 || ech
 
 echo
 echo "Written to: $OUT"
-echo "Copy the interesting numbers into the 'My Notes' table in theory/Month_1/Week_1/Day_1.md"
+echo "Copy the interesting numbers into the 'My Notes' table in theory/Month_1/Week_0/Day_1.md"

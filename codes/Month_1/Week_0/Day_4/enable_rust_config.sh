@@ -1,5 +1,5 @@
 #!/bin/bash
-# M1W1D4 - turn on CONFIG_RUST and the sample modules, WITHOUT destroying the virtio
+# M1W0D4 - turn on CONFIG_RUST and the sample modules, WITHOUT destroying the virtio
 # options that `vng --kconfig` added on Day 3.
 #
 # This is the whole point of the script: `make defconfig` would give you Rust and take away

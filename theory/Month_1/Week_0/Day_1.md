@@ -1,4 +1,4 @@
-# M1W1D1 — Linux Development Environment ✅ COMPLETED
+# M1W0D1 — Linux Development Environment ✅ COMPLETED
 
 > **Completed:** 2026-08-14. KVM working (`vmx`, `/dev/kvm` as `root:kvm 660`, `kvm_intel` loaded),
 > full LLVM 21 toolchain, ccache intercepting, 910 GB free. See `Day_2.md` for the build numbers.
@@ -236,12 +236,12 @@ from now does not produce a commit you have to redo.
 > **Two ways to do today, and you should pick the first one.**
 >
 > Everything in Phases 3, 6, and 7 is automated by
-> [`codes/Month_1/Week_1/Day_1/install_deps.sh`](../../../codes/Month_1/Week_1/Day_1/install_deps.sh):
+> [`codes/Month_1/Week_0/Day_1/install_deps.sh`](../../../codes/Month_1/Week_0/Day_1/install_deps.sh):
 >
 > ```bash
-> bash "$LKDRUST_REPO/codes/Month_1/Week_1/Day_1/install_deps.sh"
+> bash "$LKDRUST_REPO/codes/Month_1/Week_0/Day_1/install_deps.sh"
 > # or, the very first time, before $LKDRUST_REPO exists:
-> bash "/mnt/c/Users/<you>/.../SKILL/LKD_RUST/codes/Month_1/Week_1/Day_1/install_deps.sh"
+> bash "/mnt/c/Users/<you>/.../SKILL/LKD_RUST/codes/Month_1/Week_0/Day_1/install_deps.sh"
 > ```
 >
 > It is idempotent, so re-running it is safe. It also derives `$LKDRUST_REPO` from its own location, so
@@ -281,7 +281,7 @@ wsl --set-version Ubuntu 2
 ### Phase 1 — Give WSL enough resources
 
 Create or edit `%USERPROFILE%\.wslconfig` on **Windows** (not inside WSL). There is a fuller annotated
-copy at [`codes/Month_1/Week_1/Day_1/wslconfig.example`](../../../codes/Month_1/Week_1/Day_1/wslconfig.example):
+copy at [`codes/Month_1/Week_0/Day_1/wslconfig.example`](../../../codes/Month_1/Week_0/Day_1/wslconfig.example):
 
 ```ini
 [wsl2]
@@ -522,9 +522,9 @@ Recommended layout inside WSL:
 
 ```text
 ~/LKD_RUST/                  # your WSL working area
-├── Month_1/Week_1/          # scratch space for today's experiments
+├── Month_1/Week_0/          # scratch space for today's experiments
 ├── kernel/                  # kernel trees live here — NEVER committed to git
-│   └── linux/               # cloned tomorrow (M1W1D2)
+│   └── linux/               # cloned tomorrow (M1W0D2)
 └── codes/                   # scripts synced from the Windows git repo
 ```
 
@@ -602,13 +602,13 @@ drift without you noticing.
   echo
   echo "## Paths"
   echo "LINUX_TREE=$LINUX_TREE"
-} | tee ~/LKD_RUST/Month_1/Week_1/env_day1.txt
+} | tee ~/LKD_RUST/Month_1/Week_0/env_day1.txt
 ```
 
 > **There is a script for this**, and it captures more than the block above — header packages,
 > `libclang`, ccache interception, and your `PATH`:
-> [`codes/Month_1/Week_1/Day_1/record_env.sh`](../../../codes/Month_1/Week_1/Day_1/record_env.sh).
-> Run `bash "$LKDRUST_REPO/codes/Month_1/Week_1/Day_1/record_env.sh"` and use the inline block above
+> [`codes/Month_1/Week_0/Day_1/record_env.sh`](../../../codes/Month_1/Week_0/Day_1/record_env.sh).
+> Run `bash "$LKDRUST_REPO/codes/Month_1/Week_0/Day_1/record_env.sh"` and use the inline block above
 > only if you want to see what it is doing.
 
 Copy the interesting numbers into the journal section below, and into **`_internal/SETUP_LOG.md`**,
@@ -626,7 +626,7 @@ two of these files is the fastest way to find out what changed underneath you.
 Run the Day 1 check script:
 
 ```bash
-bash "$LKDRUST_REPO/codes/Month_1/Week_1/Day_1/check_day1.sh"
+bash "$LKDRUST_REPO/codes/Month_1/Week_0/Day_1/check_day1.sh"
 ```
 
 Or verify by hand — every one of these should succeed:
@@ -752,5 +752,5 @@ case ":$PATH:" in *:/usr/lib/ccache:*) echo "ccache on PATH ok";; *) echo "ccach
 
 ---
 
-**Next:** M1W1D2 — Clone and Build Mainline. Tomorrow you compile 30,000 C files for the first time,
+**Next:** M1W0D2 — Clone and Build Mainline. Tomorrow you compile 30,000 C files for the first time,
 and find out what your build time actually is.

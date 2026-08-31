@@ -309,7 +309,7 @@ vng --exec 'uname -r'
 vng --exec 'dmesg | tail -30'
 ```
 
-**Save your commands as scripts** in `codes/Month_1/Week_1/Day_1/`. You will run them thousands of times.
+**Save your commands as scripts** in `codes/Month_1/Week_0/Day_1/`. You will run them thousands of times.
 
 ### Timing your loop
 
@@ -607,7 +607,7 @@ Spend an hour on this in Week 18 — a good choice makes SensorRS upstreamable.
 Run the check script:
 
 ```bash
-bash codes/Month_1/Week_1/Day_5/check_setup.sh
+bash codes/Month_1/Week_0/Day_5/check_setup.sh
 ```
 
 Or verify by hand:

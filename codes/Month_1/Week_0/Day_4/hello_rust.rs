@@ -22,7 +22,7 @@ module! {
     name: "hello_rust",
     // Change this to your real name. It ends up in `modinfo hello_rust`.
     authors: ["ksanu"],
-    description: "First hand-written Rust kernel module (M1W1D4 activity)",
+    description: "First hand-written Rust kernel module (M1W0D4 activity)",
     license: "GPL",
     params: {
         greetings: i64 {

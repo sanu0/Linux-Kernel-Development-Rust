@@ -44,7 +44,7 @@ repo. Three reasons:
 The repo copy comes at the end, in [Stage 5](#stage-5--save-your-work). The kernel tree is
 disposable; the repo is the source of record.
 
-> **There is a finished version** at `codes/Month_1/Week_1/Day_4/hello_rust.rs`. **Do not open it
+> **There is a finished version** at `codes/Month_1/Week_0/Day_4/hello_rust.rs`. **Do not open it
 > yet.** Use it at the end to diff against what you wrote — the differences are the interesting part.
 > Reading it first turns a build into a copy.
 
@@ -209,6 +209,19 @@ hello_rust: Hello, World! From Rust, in ring 0.
 
 **That is your code, in a kernel you compiled, in a VM.** Stop and appreciate it — every remaining
 stage is a variation on this loop.
+
+> **Why `--exec` and not just `vng` and a shell?** Try the interactive way and you will get
+> `insmod: ERROR: could not insert module ...: Operation not permitted`. Plain `vng` logs you into the
+> guest as **your own unprivileged user** — the `--user` option's default is "same user as the host" —
+> and loading a module requires the `CAP_SYS_MODULE` capability, which you do not have.
+>
+> `vng --exec` runs your command from `virtme-init`, the guest's PID 1, which *is* root. You can see
+> it happen in the log: `virtme-init: starting script` appears immediately before your module's
+> output.
+>
+> So for module work, either use `--exec` as above, or start the guest as root with
+> `vng --user root`. Both are fine; `--exec` is better for the fast loop because it runs one command
+> and exits.
 
 Also look at what `module!` generated for you:
 
@@ -425,7 +438,7 @@ yourself:
 
 ```bash
 diff "$LINUX_TREE/samples/rust/hello_rust.rs" \
-     "$LKDRUST_REPO/codes/Month_1/Week_1/Day_4/hello_rust.rs"
+     "$LKDRUST_REPO/codes/Month_1/Week_0/Day_4/hello_rust.rs"
 ```
 
 Read every difference and decide, for each one, whether yours or the reference's is better. Some of
@@ -436,10 +449,10 @@ Then make your version the one of record:
 
 ```bash
 cp "$LINUX_TREE/samples/rust/hello_rust.rs" \
-   "$LKDRUST_REPO/codes/Month_1/Week_1/Day_4/hello_rust.rs"
+   "$LKDRUST_REPO/codes/Month_1/Week_0/Day_4/hello_rust.rs"
 
 cd "$LKDRUST_REPO"
-git diff codes/Month_1/Week_1/Day_4/hello_rust.rs    # exactly what you changed
+git diff codes/Month_1/Week_0/Day_4/hello_rust.rs    # exactly what you changed
 ```
 
 Then commit. This is the first kernel code you wrote yourself; the message should say so. The old
@@ -539,8 +552,10 @@ Then answer these without looking anything up:
 | `expected 1 argument, found 2` on `push` | Reading userspace `Vec` docs | Kernel `push` takes a GFP flag: `push(v, GFP_KERNEL)?` |
 | `the ? operator can only be used in a function that returns Result` | `?` outside `init` | Only use `?` where the return type is `Result` |
 | `insmod: Invalid module format` | `.ko` built against a different tree than you booted | Rebuild, then `vng` from that same tree; compare `modinfo` vermagic with `uname -r` |
-| `insmod: Operation not permitted` | Non-GPL license string | Set `license: "GPL"` back |
-| `vng` hangs or prints nothing | It wants a real TTY | Run it in your own terminal, not an editor task |
+| `insmod: Operation not permitted` **in an interactive `vng` shell** | **The usual cause.** Plain `vng` logs you in as your own unprivileged user, and loading a module needs `CAP_SYS_MODULE` | `vng --user root`, or do module work through `vng --exec` (which runs as root via `virtme-init`) |
+| `insmod: Operation not permitted` via `vng --exec` too | Now it really is the license — a non-GPL module cannot use `EXPORT_SYMBOL_GPL` symbols | Set `license: "GPL"` back |
+| `vng` hangs, prints nothing, or says `not a valid pts` | It needs a real terminal | Run it in your own terminal, not an editor task or a script |
+| `mount: /etc/lvm: mount point does not exist` at `vng` startup | virtme-ng bind-mounting host paths that this system does not have | Harmless. Ignore it |
 | Parameter ignored in the `=y` build | Built-in params are namespaced | `vng -a hello_rust.greetings=N` |
 | Nothing in `dmesg` at all | Log level filtering | `vng --exec 'dmesg -n 8; ...'` |
 

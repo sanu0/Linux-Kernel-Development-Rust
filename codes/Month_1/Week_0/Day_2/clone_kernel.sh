@@ -1,5 +1,5 @@
 #!/bin/bash
-# M1W1D2 - clone mainline Linux into $LINUX_TREE and add the remotes you will need later.
+# M1W0D2 - clone mainline Linux into $LINUX_TREE and add the remotes you will need later.
 #
 # Safe to re-run: skips the clone if the tree already exists, and skips remotes already present.
 #
@@ -10,7 +10,7 @@
 #                                     # point origin back at kernel.org
 #
 # NOTE: --depth=1 is deliberately NOT offered. git history is a kernel development tool:
-# blame, bisect, and Fixes: tags all need it. See theory/Month_1/Week_1/Day_2.md concept 2.
+# blame, bisect, and Fixes: tags all need it. See theory/Month_1/Week_0/Day_2.md concept 2.
 
 set -euo pipefail
 
@@ -105,7 +105,7 @@ cat <<EOF
 Next:
   cd "\$LINUX_TREE"
   make defconfig
-  bash ~/LKD_RUST/codes/Month_1/Week_1/Day_2/first_build.sh
+  bash ~/LKD_RUST/codes/Month_1/Week_0/Day_2/first_build.sh
 
 Do NOT fetch the other remotes today - each is another multi-GB download and you
 need none of it yet. The URLs are the point.

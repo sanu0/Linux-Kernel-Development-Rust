@@ -1,4 +1,4 @@
-# M1W1D3 — The Fast Boot Loop ✅ COMPLETED
+# M1W0D3 — The Fast Boot Loop ✅ COMPLETED
 
 > **Completed:** 2026-08-17. QEMU 10.2.1, virtme-ng 1.40 (from `apt`, not pip — see Phase 1).
 > Manual QEMU boot reached `VFS: Unable to mount root fs` in **1.7 s** — a clean boot with no root
@@ -288,9 +288,9 @@ Now capture it instead of watching it scroll:
 qemu-system-x86_64 -enable-kvm -m 2G -smp 4 \
   -kernel arch/x86/boot/bzImage \
   -append "console=ttyS0 panic=-1" -nographic -no-reboot \
-  2>&1 | tee ~/LKD_RUST/Month_1/Week_1/boot_manual.log
+  2>&1 | tee ~/LKD_RUST/Month_1/Week_0/boot_manual.log
 
-grep -iE 'panic|Linux version|Command line' ~/LKD_RUST/Month_1/Week_1/boot_manual.log
+grep -iE 'panic|Linux version|Command line' ~/LKD_RUST/Month_1/Week_0/boot_manual.log
 ```
 
 ### Phase 3 — Configure for virtme-ng and rebuild
@@ -363,11 +363,11 @@ That is your floor — pure boot cost, usually a couple of seconds.
 ### Phase 6 — Save your commands
 
 You will run these thousands of times. The repo has them in
-`codes/Month_1/Week_1/Day_3/`; check they work and adjust to taste:
+`codes/Month_1/Week_0/Day_3/`; check they work and adjust to taste:
 
 ```bash
-bash ~/LKD_RUST/codes/Month_1/Week_1/Day_3/boot_manual.sh
-bash ~/LKD_RUST/codes/Month_1/Week_1/Day_3/time_loop.sh
+bash ~/LKD_RUST/codes/Month_1/Week_0/Day_3/boot_manual.sh
+bash ~/LKD_RUST/codes/Month_1/Week_0/Day_3/time_loop.sh
 ```
 
 Add a shell alias while you are at it:
@@ -380,7 +380,7 @@ source ~/.bashrc
 ### Phase 7 — Verify and record
 
 ```bash
-bash ~/LKD_RUST/codes/Month_1/Week_1/Day_3/check_day3.sh
+bash ~/LKD_RUST/codes/Month_1/Week_0/Day_3/check_day3.sh
 ```
 
 ---
@@ -392,7 +392,7 @@ qemu-system-x86_64 --version | head -1
 vng --version
 cd "$LINUX_TREE" && vng --exec 'uname -r'          # prints YOUR kernel version
 grep -c CONFIG_VIRTIO .config                # virtio options present
-ls -lh ~/LKD_RUST/Month_1/Week_1/boot_manual.log
+ls -lh ~/LKD_RUST/Month_1/Week_0/boot_manual.log
 ```
 
 ---
@@ -624,6 +624,6 @@ vng --exec 'uname -r'        # one command in the guest, then straight back
 
 ---
 
-**Next:** M1W1D4 — The Rust Toolchain. You get `make LLVM=1 rustavailable` to say yes, enable
+**Next:** M1W0D4 — The Rust Toolchain. You get `make LLVM=1 rustavailable` to say yes, enable
 `CONFIG_RUST`, and load your first Rust kernel module. Everything so far has been C; tomorrow the
 roadmap's actual subject begins.

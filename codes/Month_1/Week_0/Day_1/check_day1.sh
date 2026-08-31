@@ -1,5 +1,5 @@
 #!/bin/bash
-# M1W1D1 — verify the development environment is ready.
+# M1W0D1 — verify the development environment is ready.
 #
 # Checks only what Day 1 covers: userland, build dependencies, LLVM, KVM, git identity,
 # ccache, and the working directories. There is no kernel tree or Rust toolchain yet —
@@ -33,7 +33,7 @@ check_cmd() {
   fi
 }
 
-printf '%sM1W1D1 — environment check%s\n' "$B" "$N"
+printf '%sM1W0D1 — environment check%s\n' "$B" "$N"
 
 # ─────────────────────────────────────────────────────────────────
 section "WSL and userland"
@@ -231,7 +231,7 @@ if [ -n "${LINUX_TREE:-}" ]; then
 
   [ -d "$LINUX_TREE" ] \
     && ok "kernel tree already cloned" \
-    || info "not cloned yet — that is M1W1D2"
+    || info "not cloned yet — that is M1W0D2"
 else
   fail "\$LINUX_TREE unset — add it to ~/.bashrc so later scripts can find the tree"
 fi
@@ -248,14 +248,14 @@ fi
 section "Summary"
 
 if   [ "$FAILURES" -eq 0 ] && [ "$WARNINGS" -eq 0 ]; then
-  printf '  %sDay 1 complete. Record your numbers in the journal, then go to M1W1D2.%s\n\n' "$G" "$N"
+  printf '  %sDay 1 complete. Record your numbers in the journal, then go to M1W0D2.%s\n\n' "$G" "$N"
 elif [ "$FAILURES" -eq 0 ]; then
   printf '  %s%d warning(s), no failures.%s Day 1 is done — note the warnings in the journal.\n\n' \
     "$Y" "$WARNINGS" "$N"
 else
-  printf '  %s%d failure(s)%s and %d warning(s). Fix the failures before M1W1D2 —\n' \
+  printf '  %s%d failure(s)%s and %d warning(s). Fix the failures before M1W0D2 —\n' \
     "$R" "$FAILURES" "$N" "$WARNINGS"
-  printf '  see theory/Month_1/Week_1/Day_1.md\n\n'
+  printf '  see theory/Month_1/Week_0/Day_1.md\n\n'
 fi
 
 exit "$FAILURES"

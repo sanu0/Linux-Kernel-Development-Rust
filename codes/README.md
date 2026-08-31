@@ -1,11 +1,11 @@
 # Code — Linux Kernel Development in Rust
 
 All code that accompanies the daily theory in `../theory/` and the weekly plans in `../Readme.md`.
-The layout **mirrors the theory folder**: the code for `theory/Month_1/Week_1/Day_1.md` lives in
-`codes/Month_1/Week_1/Day_1/`, so the code for any lesson sits next to where that lesson is described.
+The layout **mirrors the theory folder**: the code for `theory/Month_1/Week_0/Day_1.md` lives in
+`codes/Month_1/Week_0/Day_1/`, so the code for any lesson sits next to where that lesson is described.
 
 ```text
-theory/Month_1/Week_1/Day_1.md   <->   codes/Month_1/Week_1/Day_1/
+theory/Month_1/Week_0/Day_1.md   <->   codes/Month_1/Week_0/Day_1/
 ```
 
 ## Structure
@@ -15,7 +15,7 @@ codes/
 ├── sync_from_repo.sh              # repo -> WSL (pull code to build and run it)
 ├── sync_to_repo.sh                # WSL -> repo (push changes back to commit)
 └── Month_1/
-    └── Week_1/
+    └── Week_0/
         ├── Day_1/                 # environment setup
         │   ├── install_deps.sh    # install every build dependency + LLVM + ccache
         │   ├── check_day1.sh      # verify Day 1 is complete (exit code = failure count)
@@ -31,17 +31,17 @@ their own out-of-tree `Makefile`; userspace tools are Cargo projects.
 
 ```
 codes/
-├── Month_1/Week_1/Day_1/          # lab setup and verification
+├── Month_1/Week_0/Day_1/          # lab setup and verification
 ├── Month_1/Week_2/                # KernelForge (Rust CLI)
 ├── Month_2/Week_5/                # SafetyLint (Rust CLI)
 ├── Month_2/Week_7/                # PinDojo (Rust crate + trybuild tests)
 ├── Month_3/Week_9/kmod/           # KModKit modules (Rust kernel modules)
-├── Month_3/Week_12/               # OopsLens (Rust CLI/TUI)
-├── Month_4/Week_15/qemu/          # VirtToy QEMU device model (C)
-├── Month_4/Week_15/kmod/          # VirtToy Rust driver
-├── Month_4/Week_16/kmod/          # PCIScope Rust driver
-├── Month_5/Week_17/               # DMAForge
-├── Month_5/Week_18/kmod/          # SensorRS (the upstream candidate)
+├── Month_3/Week_02/               # OopsLens (Rust CLI/TUI)
+├── Month_4/Week_05/qemu/          # VirtToy QEMU device model (C)
+├── Month_4/Week_05/kmod/          # VirtToy Rust driver
+├── Month_4/Week_06/kmod/          # PCIScope Rust driver
+├── Month_5/Week_07/               # DMAForge
+├── Month_5/Week_08/kmod/          # SensorRS (the upstream candidate)
 ├── Month_6/Week_21/kmod/          # LockProof bug museum
 ├── Month_6/Week_22/kmod/          # BlockForge
 └── ...
@@ -83,8 +83,8 @@ find ~/LKD_RUST/codes -type f \( -name '*.sh' -o -name '*.rs' -o -name '*.c' -o 
 find ~/LKD_RUST/codes -type f -name '*.sh' -exec chmod +x {} +
 
 # Day 1: install everything, then verify
-bash ~/LKD_RUST/codes/Month_1/Week_1/Day_1/install_deps.sh
-bash ~/LKD_RUST/codes/Month_1/Week_1/Day_1/check_day1.sh
+bash ~/LKD_RUST/codes/Month_1/Week_0/Day_1/install_deps.sh
+bash ~/LKD_RUST/codes/Month_1/Week_0/Day_1/check_day1.sh
 ```
 
 ### Daily use

@@ -1,5 +1,5 @@
 #!/bin/bash
-# M1W1D3 - verify the boot loop works and is fast enough.
+# M1W0D3 - verify the boot loop works and is fast enough.
 #
 # Checks QEMU, virtme-ng, the virtio config options vng needs, an actual guest boot,
 # and the loop time. No Rust yet - that is Day 4.
@@ -21,7 +21,7 @@ warn() { printf '  %s[warn]%s %s\n' "$Y" "$N" "$1"; WARNINGS=$((WARNINGS+1)); }
 fail() { printf '  %s[FAIL]%s %s\n' "$R" "$N" "$1"; FAILURES=$((FAILURES+1)); }
 info() { printf '         %s\n' "$1"; }
 
-printf '%sM1W1D3 - boot loop check%s\n' "$B" "$N"
+printf '%sM1W0D3 - boot loop check%s\n' "$B" "$N"
 
 # ─────────────────────────────────────────────────────────────────
 section "Tools"
@@ -160,7 +160,7 @@ if command -v ccache > /dev/null 2>&1; then
   [ -n "$HR" ] && info "ccache $HR"
 fi
 
-LOG="$HOME/LKD_RUST/Month_1/Week_1/boot_manual.log"
+LOG="$HOME/LKD_RUST/Month_1/Week_0/boot_manual.log"
 [ -f "$LOG" ] && ok "boot log captured ($(wc -l < "$LOG") lines)" \
               || warn "no boot log yet - run boot_manual.sh, and get in the habit of capturing"
 
@@ -168,11 +168,11 @@ LOG="$HOME/LKD_RUST/Month_1/Week_1/boot_manual.log"
 section "Summary"
 
 if   [ "$FAILURES" -eq 0 ] && [ "$WARNINGS" -eq 0 ]; then
-  printf '  %sDay 3 complete. Measure the full loop with time_loop.sh, then go to M1W1D4.%s\n\n' "$G" "$N"
+  printf '  %sDay 3 complete. Measure the full loop with time_loop.sh, then go to M1W0D4.%s\n\n' "$G" "$N"
 elif [ "$FAILURES" -eq 0 ]; then
   printf '  %s%d warning(s), no failures.%s Day 3 is workable - note the warnings.\n\n' "$Y" "$WARNINGS" "$N"
 else
-  printf '  %s%d failure(s)%s and %d warning(s). See theory/Month_1/Week_1/Day_3.md\n\n' "$R" "$FAILURES" "$N" "$WARNINGS"
+  printf '  %s%d failure(s)%s and %d warning(s). See theory/Month_1/Week_0/Day_3.md\n\n' "$R" "$FAILURES" "$N" "$WARNINGS"
 fi
 
 exit "$FAILURES"

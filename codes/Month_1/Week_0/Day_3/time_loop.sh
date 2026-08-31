@@ -1,8 +1,8 @@
 #!/bin/bash
-# M1W1D3 - measure the edit -> build -> boot -> output loop.
+# M1W0D3 - measure the edit -> build -> boot -> output loop.
 #
 # This is the number that quietly decides how much you learn over the next 18 months.
-# Target: under 60 seconds. See theory/Month_1/Week_1/Day_3.md concept 8.
+# Target: under 60 seconds. See theory/Month_1/Week_0/Day_3.md concept 8.
 #
 # Usage:  bash time_loop.sh [-jN]
 
@@ -106,4 +106,4 @@ else
   echo "    - .wslconfig         -> raise 'processors'"
 fi
 echo
-echo "Record these in the timings table in theory/Month_1/Week_1/Day_3.md"
+echo "Record these in the timings table in theory/Month_1/Week_0/Day_3.md"

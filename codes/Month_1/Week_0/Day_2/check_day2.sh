@@ -1,5 +1,5 @@
 #!/bin/bash
-# M1W1D2 - verify the clone and the first build.
+# M1W0D2 - verify the clone and the first build.
 #
 # Checks only what Day 2 covers: the tree, its history, the remotes, the config, the build
 # artifacts, and ccache. There is no Rust toolchain yet (Day 4) and nothing has been booted
@@ -22,7 +22,7 @@ warn() { printf '  %s[warn]%s %s\n' "$Y" "$N" "$1"; WARNINGS=$((WARNINGS+1)); }
 fail() { printf '  %s[FAIL]%s %s\n' "$R" "$N" "$1"; FAILURES=$((FAILURES+1)); }
 info() { printf '         %s\n' "$1"; }
 
-printf '%sM1W1D2 - clone and build check%s\n' "$B" "$N"
+printf '%sM1W0D2 - clone and build check%s\n' "$B" "$N"
 
 # ─────────────────────────────────────────────────────────────────
 section "Environment carried over from Day 1"
@@ -175,11 +175,11 @@ fi
 section "Summary"
 
 if   [ "$FAILURES" -eq 0 ] && [ "$WARNINGS" -eq 0 ]; then
-  printf '  %sDay 2 complete. Fill in the tables in Day_2.md, then go to M1W1D3.%s\n\n' "$G" "$N"
+  printf '  %sDay 2 complete. Fill in the tables in Day_2.md, then go to M1W0D3.%s\n\n' "$G" "$N"
 elif [ "$FAILURES" -eq 0 ]; then
   printf '  %s%d warning(s), no failures.%s Day 2 is done - note the warnings in the journal.\n\n' "$Y" "$WARNINGS" "$N"
 else
-  printf '  %s%d failure(s)%s and %d warning(s). See theory/Month_1/Week_1/Day_2.md\n\n' "$R" "$FAILURES" "$N" "$WARNINGS"
+  printf '  %s%d failure(s)%s and %d warning(s). See theory/Month_1/Week_0/Day_2.md\n\n' "$R" "$FAILURES" "$N" "$WARNINGS"
 fi
 
 exit "$FAILURES"

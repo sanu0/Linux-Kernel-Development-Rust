@@ -1,5 +1,5 @@
 #!/bin/bash
-# M1W1D2 - build the kernel and report the numbers you need for the journal.
+# M1W0D2 - build the kernel and report the numbers you need for the journal.
 #
 # Runs a timed build, then optionally a second build with a warm ccache to demonstrate
 # what the Day 1 PATH change actually bought you.
@@ -26,7 +26,7 @@ say() { printf '\n\033[1m== %s ==\033[0m\n' "$1"; }
 : "${LINUX_TREE:?LINUX_TREE is not set. Open a new shell, or re-check ~/.bashrc from Day 1.}"
 [ -d "$LINUX_TREE/.git" ] || { echo "No kernel tree at $LINUX_TREE - run clone_kernel.sh first."; exit 1; }
 
-LOGDIR="$HOME/LKD_RUST/Month_1/Week_1"
+LOGDIR="$HOME/LKD_RUST/Month_1/Week_0"
 mkdir -p "$LOGDIR"
 cd "$LINUX_TREE"
 
@@ -120,4 +120,4 @@ else
 fi
 echo "  logs             : $LOGDIR/build1.log"
 echo
-echo "Copy these into the tables in theory/Month_1/Week_1/Day_2.md"
+echo "Copy these into the tables in theory/Month_1/Week_0/Day_2.md"

@@ -1,5 +1,5 @@
 #!/bin/bash
-# M1W1D4 activity - wire hello_rust.rs into the kernel tree's build system.
+# M1W0D4 activity - wire hello_rust.rs into the kernel tree's build system.
 #
 # Kernel Rust has thin support for out-of-tree modules, so the path of least resistance
 # is to develop IN-tree: drop the source into samples/rust/, give it a Kconfig entry and
@@ -50,8 +50,8 @@ MAKEFILE=samples/rust/Makefile
 say "Pre-flight"
 if ! grep -q '^CONFIG_RUST=y' .config; then
   echo "  CONFIG_RUST is not enabled. Run Day 4 first:"
-  echo "    bash \"\$LKDRUST_REPO/codes/Month_1/Week_1/Day_4/install_rust_toolchain.sh\""
-  echo "    bash \"\$LKDRUST_REPO/codes/Month_1/Week_1/Day_4/enable_rust_config.sh\""
+  echo "    bash \"\$LKDRUST_REPO/codes/Month_1/Week_0/Day_4/install_rust_toolchain.sh\""
+  echo "    bash \"\$LKDRUST_REPO/codes/Month_1/Week_0/Day_4/enable_rust_config.sh\""
   exit 1
 fi
 echo "  CONFIG_RUST=y"
@@ -75,10 +75,10 @@ else
   sed -i '/^endif # SAMPLES_RUST/d' "$KCONFIG"
   cat >> "$KCONFIG" <<'EOF'
 config SAMPLE_RUST_HELLO
-	tristate "Hello world (hand-written, M1W1D4 activity)"
+	tristate "Hello world (hand-written, M1W0D4 activity)"
 	help
 	  Your own first Rust kernel module, kept under version control at
-	  codes/Month_1/Week_1/Day_4/hello_rust.rs in the LKD_RUST repo.
+	  codes/Month_1/Week_0/Day_4/hello_rust.rs in the LKD_RUST repo.
 
 	  Choose M to build hello_rust.ko and load it with insmod, so you can
 	  watch both init and exit.

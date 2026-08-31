@@ -1,8 +1,8 @@
 #!/bin/bash
-# M1W1D4 - install the Rust toolchain the kernel tree demands, and verify the gate.
+# M1W0D4 - install the Rust toolchain the kernel tree demands, and verify the gate.
 #
 # Asks the TREE what it needs rather than hardcoding versions, because those change every
-# release. See theory/Month_1/Week_1/Day_4.md concept 1.
+# release. See theory/Month_1/Week_0/Day_4.md concept 1.
 #
 # Safe to re-run.
 #
@@ -129,6 +129,6 @@ if make LLVM=1 rustavailable; then
   printf '\n  \033[32mRust is available. Continue to Day 4 Phase 4 (enable CONFIG_RUST).\033[0m\n\n'
 else
   printf '\n  \033[31mNot yet.\033[0m Read the message above literally - it names the tool and the problem.\n'
-  echo "  Common fixes are tabulated in theory/Month_1/Week_1/Day_4.md Phase 3."
+  echo "  Common fixes are tabulated in theory/Month_1/Week_0/Day_4.md Phase 3."
   exit 1
 fi
