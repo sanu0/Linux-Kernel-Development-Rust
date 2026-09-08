@@ -17,8 +17,11 @@
 ## Today's Checklist
 
 - [ ] Understand why the kernel uses email and not pull requests
-- [ ] Make a topic branch, commit on it, and read the commit back three ways
+- [ ] Read your existing commit back three ways, and fix its message to kernel style
+- [ ] Amend it to add the `Signed-off-by:` trailer it is missing
 - [ ] Learn the branch conventions — especially that `master` is never yours
+- [ ] Walk the full upstream submission sequence with your own patch as the example
+- [ ] Understand **why your `hello_rust` patch would be rejected**, and what a real first patch is
 - [ ] Enable `rerere` so you solve each rebase conflict once
 - [ ] Run the **reflog recovery drill** deliberately, while it is not an emergency
 - [ ] Push a topic branch to your fork as off-machine backup
@@ -365,43 +368,34 @@ git config --global user.name  "Your Full Name"
 git config --global user.email "you@example.com"
 ```
 
-### Phase 1 — A topic branch, and reading a commit three ways
+### Phase 1 — Your topic branch, and reading a commit three ways
+
+**You have already done the hard part of this phase.** Your `sanu0` branch holds the `hello_rust`
+module — one commit, sitting on top of a clean `master`. That *is* a topic branch used correctly, so
+there is no reason to create a second one for the same purpose.
+
+> **If you are starting fresh** and have no such branch yet, make one now and put a small change on
+> it. Branch **from `master`**, explicitly, so the base is upstream and not some earlier experiment:
+>
+> ```bash
+> git checkout -b hello-rust master     # <new-branch> <start-point>
+> $EDITOR samples/rust/rust_minimal.rs  # any small, honest change
+> git add -A && git commit -s
+> ```
+>
+> Note the argument order: `git checkout -b <new> <base>`. Plain `git checkout -b hello-rust`
+> branches from wherever you are *now*, which silently drags along whatever that branch contains.
 
 ```bash
 cd "$LINUX_TREE"
-git checkout -b hello-rust
+git checkout sanu0
+git branch -vv
 ```
 
-Make a small, real change — a genuine typo fix if you can find one, otherwise a comment:
+You want to see `master` with `[origin/master]` and **no** `[ahead N]`, which is how you confirm the
+one hard rule is holding: master is still upstream's, not yours.
 
-```bash
-# find something harmless to touch
-git grep -n "lenght\|recieve\|seperate\|occured" -- '*.rs' | head
-
-# or just add a comment in a sample
-$EDITOR samples/rust/rust_minimal.rs
-```
-
-Commit it with a sign-off:
-
-```bash
-git add -A
-git commit -s
-```
-
-`-s` appends your `Signed-off-by:`. Write a real message while you are here — subject under 60
-characters, imperative mood ("fix", not "fixed"), then a blank line, then why:
-
-```text
-rust: samples: note the KVec allocation is fallible
-
-The minimal sample allocates a KVec without commenting on why the
-push is fallible, which reads as noise to someone new to kernel Rust.
-
-Signed-off-by: Your Name <you@example.com>
-```
-
-Now read it back three ways, because each answers a different question:
+Now read your commit back three ways, because each answers a different question:
 
 ```bash
 git log --oneline -3          # where am I in history?
@@ -409,11 +403,73 @@ git show HEAD                 # what exactly changed, line by line?
 git show --stat HEAD          # which files, how much?
 ```
 
-Save that hash. It is a permanent, offline reference to this exact state:
+Then widen it to "everything of mine that is not upstream" — the question you will actually ask in
+Month 4 when you have several branches going:
+
+```bash
+git log --oneline master..sanu0     # commits sanu0 has that master lacks
+git log -p master..sanu0            # ...with every changed line
+```
+
+`A..B` reads as *"reachable from B but not from A"* — plainly, **B minus A**. The order is not
+cosmetic: reverse it to `sanu0..master` and you are asking the opposite question, "what has upstream
+got that I am missing", which is your staleness check after a `git fetch`.
+
+Save the hash. It is a permanent, offline reference to this exact state:
 
 ```bash
 git rev-parse --short HEAD
 ```
+
+#### Fix the commit before you go further
+
+Look at your commit message honestly:
+
+```text
+Create a custom sample kernel module in Rust that prints Hello World upon insmod
+```
+
+Two problems, both of which the rest of today will trip over:
+
+1. **No `Signed-off-by:` trailer**, because it was committed without `-s`. `checkpatch.pl` will
+   error on this in Phase 6, and a real patch missing that trailer **cannot be applied at all** —
+   it is the DCO assertion from concept 3, not a nicety.
+2. **Not kernel style.** Upstream wants a `subsystem: area:` prefix and the imperative mood, so
+   that `git log --oneline` reads as a list of instructions. Compare:
+
+   ```text
+   Create a custom sample kernel module in Rust that prints...   <- yours
+   samples: rust: add a minimal hello-world module               <- kernel style
+   ```
+
+Fix both in one step:
+
+```bash
+git commit --amend -s
+```
+
+That reopens the message with your `Signed-off-by:` already appended. Rewrite the subject in kernel
+form, add a blank line, then a body saying *why* the change exists — not what the diff already shows:
+
+```text
+samples: rust: add a minimal hello-world module
+
+Add a sample module that logs a message from init, as a first
+end-to-end exercise of the kernel Rust toolchain.
+
+Signed-off-by: Kumar Sanu <kumarsanuofficial007@gmail.com>
+```
+
+Amending **rewrites the commit, so the hash changes.** Your old hash is still in the reflog, and
+since this branch exists only on your own fork with nobody pulling from it, updating the remote copy
+is safe:
+
+```bash
+git push --force-with-lease github sanu0
+```
+
+`--force-with-lease` rather than `--force`: it refuses if the remote moved in a way you have not
+seen, which is the difference between rewriting your own history and destroying someone else's.
 
 ### Phase 2 — `rerere`, and reading up on worktrees
 
@@ -434,7 +490,16 @@ You are about to destroy a branch and get it back. **This is safe** — that is 
 it now rather than at 1am in Month 7.
 
 ```bash
+**Do the drill on a throwaway branch, never on `sanu0`.** The lesson is identical, and there is no
+reason to point a loaded `git branch -D` at work you care about:
+
+```bash
 cd "$LINUX_TREE"
+
+# 0. A disposable branch off master, with a disposable commit on it
+git checkout -b drill master
+echo "// drill - delete me" >> samples/rust/rust_minimal.rs
+git commit -s -am "samples: rust: drill commit, not for submission"
 
 # 1. Note the hash of the work you are about to "lose"
 DOOMED=$(git rev-parse --short HEAD)
@@ -442,7 +507,7 @@ echo "remember this: $DOOMED"
 
 # 2. Leave the branch and delete it, forcefully
 git checkout master
-git branch -D hello-rust        # "Deleted branch hello-rust (was abc1234)"
+git branch -D drill             # "Deleted branch drill (was abc1234)"
 ```
 
 Your work now has **no branch pointing at it**. `git branch` does not list it. In most tools that
@@ -458,10 +523,11 @@ git log --oneline -2            # your commit, intact
 git show HEAD                   # message, author, diff - all of it
 ```
 
-Now put it back where it belongs and clean up:
+Then throw the drill away for real and get back to your actual branch:
 
 ```bash
-git branch -m rescue hello-rust
+git checkout sanu0
+git branch -D rescue
 ```
 
 > **What just happened:** a branch is only a *name* pointing at a commit. Deleting the name does not
@@ -477,8 +543,19 @@ Your fork is a **backup and a browsable diff view**, never a route for contribut
 ```bash
 cd "$LINUX_TREE"
 git remote -v | grep github          # should exist from Day 2
-git push github hello-rust
+git push github sanu0
 ```
+
+Yours is already pushed, so confirm rather than repeat — and confirm the thing that actually
+matters, which is that **nothing of yours exists only on this disk**:
+
+```bash
+git log --oneline --branches --not --remotes
+```
+
+Empty output means every commit on every local branch also exists on a remote. Note the gap this
+does *not* cover: **stashes are never pushed by anything.** `git stash list` is a separate question,
+and a stash is the classic way to lose an afternoon's work to a dead disk.
 
 > ⚠ **A fork of a public repo is permanently public on GitHub**, with no option to make it private.
 > Your branch names, commit messages, and the name and email in `git log` are all visible and
@@ -511,13 +588,28 @@ learning **where things live**, not what they do.
 
 ### Phase 6 — `checkpatch.pl` and `get_maintainer.pl`
 
-On your own commit first:
+Turn your own commit into a patch file and check it:
 
 ```bash
 cd "$LINUX_TREE"
+git checkout sanu0
 git format-patch -1 -o /tmp/p
+cat /tmp/p/*.patch                    # read it — this is what a maintainer sees
 scripts/checkpatch.pl /tmp/p/*.patch
 ```
+
+`git format-patch -1` means "the last 1 commit", and `-o` says where to put the file. You get
+`0001-samples-rust-add-a-minimal-hello-world-module.patch` — the filename is generated from your
+subject line, which is one more reason the subject matters.
+
+**If you skipped the amend in Phase 1**, checkpatch will report:
+
+```text
+ERROR: Missing Signed-off-by: line(s)
+```
+
+That is correct, not a broken setup. Go back and run `git commit --amend -s`. A patch without that
+trailer cannot be applied by anyone, so this single error is a hard blocker rather than a style nit.
 
 Then on a real file, to see the scale of what it reports:
 
@@ -585,7 +677,7 @@ git config --global --get-regexp '^sendemail\.'
 
 ```bash
 cd "$LINUX_TREE"
-git checkout hello-rust
+git checkout sanu0
 git format-patch -1 -o /tmp/selftest
 cat /tmp/selftest/*.patch          # read it. this is what a maintainer sees
 ```
@@ -618,10 +710,16 @@ more robust about encoding.
 Clean up:
 
 ```bash
-git checkout hello-rust
+git checkout sanu0
 git branch -D selftest-apply
 rm -rf /tmp/selftest /tmp/p
 ```
+
+> **What you just proved.** A commit on your branch became a text file, went out through Gmail's
+> servers, came back, and `git am` rebuilt it into an identical commit — author, date, message and
+> diff intact. That is the entire upstream transport mechanism, tested end to end. Everything
+> remaining is about *content*: whether the change is worth making and described well enough to be
+> accepted. Which is the next section.
 
 ### Phase 9 — `b4`
 
@@ -643,7 +741,7 @@ git checkout -b review-test master
 b4 shazam '<message-id>'
 git log --oneline -5
 
-git checkout hello-rust
+git checkout sanu0
 git branch -D review-test
 ```
 
@@ -685,6 +783,147 @@ bash ~/LKD_RUST/codes/Month_1/Week_0/Day_1/record_env.sh
 
 ---
 
+## Upstreaming, Walked Through With Your Own Patch
+
+You now have a real commit, a working mail path, and the review scripts. So here is the whole
+submission process, using your `hello_rust` patch as the worked example.
+
+### First, the honest verdict: this one would be rejected
+
+Start here, because it is the most useful thing to understand today.
+
+Your patch adds a personal hello-world module to `samples/rust/`. Mail it to
+`rust-for-linux@vger.kernel.org` and it would be turned down — politely, but firmly. The reasons are
+worth knowing precisely, because they are the criteria every patch is judged by:
+
+| Why it fails | The underlying rule |
+|---|---|
+| It duplicates `samples/rust/rust_minimal.rs`, which already exists and does the same thing | **A patch must solve a problem someone other than you has.** "I wanted to learn" is not a problem the kernel has |
+| It adds a maintenance burden with no user | Every line in the tree must be built, tested and fixed forever. New code has to earn that cost |
+| The samples directory is documentation-by-example, not a scratchpad | Each sample demonstrates a *distinct* API. Two showing the same thing makes the set worse |
+
+None of that is a criticism of the work — it was the right thing to build on Day 4, and it taught
+you the toolchain. It just is not a *contribution*. Those are different things, and conflating them
+is the most common way newcomers get a discouraging first experience.
+
+> **The rule to carry forward:** before writing a patch, be able to finish the sentence *"without
+> this, someone cannot ___"*. If you cannot, you have a learning exercise. Both are valuable; only
+> one gets sent.
+
+### The sequence, if it were a real change
+
+Everything below is exactly what you would run. Practise it with this patch — send only to yourself.
+
+**1. Base it on the right tree.** Not "the newest thing", but the tree whose maintainer will apply it:
+
+```bash
+cd "$LINUX_TREE"
+scripts/get_maintainer.pl --no-rolestats -f samples/rust/
+grep -A 20 '^RUST$' MAINTAINERS        # the T: line names the tree
+```
+
+Rust work goes through `rust-next`, not mainline. Basing on the wrong tree is the single most common
+cause of "does not apply, please rebase":
+
+```bash
+git fetch rfl
+git checkout -b my-fix rfl/rust-next
+```
+
+**2. Make the change small and single-purpose.** One logical change per commit. If your commit
+message needs the word "and", you probably have two patches.
+
+**3. Write the message for the reviewer.** The diff shows *what*; the message must explain *why*:
+
+```text
+samples: rust: fix typo in hello-world module description
+
+s/lenght/length/ in the Kconfig help text.
+
+Signed-off-by: Kumar Sanu <kumarsanuofficial007@gmail.com>
+```
+
+**4. Build and boot it.** Not "it compiled" — actually load it:
+
+```bash
+make LLVM=1 -j"$(nproc)"
+vng --exec 'insmod samples/rust/hello_rust.ko; dmesg | tail'
+```
+
+**5. Run the robot reviewer, and fix what is real:**
+
+```bash
+git format-patch -1 -o /tmp/out
+scripts/checkpatch.pl --strict /tmp/out/*.patch
+```
+
+**6. Work out who to send it to.** Maintainers in `To:`, lists and reviewers in `Cc:`:
+
+```bash
+scripts/get_maintainer.pl /tmp/out/*.patch
+```
+
+**7. Send it — to yourself first, always:**
+
+```bash
+git send-email --to="$(git config --global user.email)" /tmp/out/*.patch
+```
+
+Only once that arrives intact do you replace the address with the real recipients.
+
+### Then the part nobody warns you about: review
+
+**Silence is the default, not rejection.** Maintainers are volunteers with hundreds of patches
+queued. A fortnight of nothing is normal. A polite ping after 1-2 weeks is acceptable; a second
+ping after another two is the limit.
+
+**Expect to be wrong in public, and treat that as the value.** Review comments are not personal.
+The correct response to "this is racy" is a question, not a defence.
+
+**Then send v2, as a fresh mail — never a reply with a new attachment:**
+
+```bash
+git rebase -i rfl/rust-next            # amend the commits per the feedback
+git format-patch -v2 -1 -o /tmp/v2     # -v2 puts [PATCH v2] in the subject
+```
+
+Put a changelog **under the `---` line**, where it stays in the mail but out of kernel history
+forever:
+
+```text
+---
+v2: use KVec::with_capacity() as suggested by <reviewer>
+    fix the typo in the Kconfig help text
+```
+
+And `git range-diff` shows reviewers exactly what moved between versions — run it on yourself before
+they run it on you:
+
+```bash
+git range-diff rfl/rust-next..v1-branch rfl/rust-next..HEAD
+```
+
+### So what *should* your first real patch be?
+
+The highest-acceptance targets, roughly in order:
+
+| Target | Why it works |
+|---|---|
+| **Typo and grammar fixes in `Documentation/`** | Genuinely useful, trivially reviewable, teaches the whole process at low stakes |
+| **Kernel-doc comment fixes** | Same, and you learn the annotation format you will need later |
+| **A `checkpatch --strict` warning in a file you understand** | Small, mechanical, verifiable |
+| **A real bug you hit yourself** | The best kind. You have the reproducer and the motivation |
+| **`Fixes:` for something `git bisect` found** | Highest value of all, and how you get taken seriously |
+
+`UPSTREAM.md` in this repo has the full treatment — commit message conventions, series structure,
+cover letters, the trailer reference, and the pre-submission checklist. Read it before your first
+real send, which the roadmap places in Month 2, not today.
+
+Today's achievement is narrower and more important than a merged patch: **you have proved the pipe
+works.** When you do have something worth sending, the plumbing will not be what stops you.
+
+---
+
 ## Verification
 
 ```bash
@@ -693,8 +932,9 @@ cd "$LINUX_TREE"
 git config --global user.name && git config --global user.email
 git config --global --get-regexp '^sendemail\.'
 git config --global rerere.enabled                 # true
-git rev-parse --abbrev-ref HEAD                    # hello-rust, not master
+git rev-parse --abbrev-ref HEAD                    # sanu0, not master
 git log --oneline origin/master..master            # EMPTY - master must be clean
+git log --oneline --branches --not --remotes       # EMPTY - nothing only on this disk
 scripts/checkpatch.pl --version > /dev/null && echo checkpatch ok
 b4 --version
 ls rust-project.json
@@ -788,8 +1028,13 @@ And the one that actually counts: **a patch you mailed yourself applied cleanly 
 - [ ] You can explain why the kernel uses email rather than pull requests, without calling it nostalgia
 - [ ] You can describe what a patch file physically contains, and what the `---` line separates
 - [ ] `user.name` and `user.email` are set to what you want public forever
-- [ ] A topic branch exists with a signed-off commit on it, and `master` is still clean
+- [ ] Your commit carries a `Signed-off-by:` and a kernel-style `subsystem: area:` subject
+- [ ] `master` is still clean, and you verified it with `git log origin/master..master`
 - [ ] You can explain why `master` must stay pristine, and what `--ff-only` protects
+- [ ] You can read `A..B` range syntax, and say what reversing it asks instead
+- [ ] **You can explain why your `hello_rust` patch is not a contribution**, and name the test a
+      real patch has to pass ("without this, someone cannot ___")
+- [ ] You know which tree Rust patches are based on, and where the `T:` line told you
 - [ ] `rerere.enabled` is true, and you can say what it does for you
 - [ ] **You have deleted a branch and recovered it from the reflog, on purpose**
 - [ ] Topic branch pushed to your fork; you know why a PR to `torvalds/linux` is wrong
@@ -918,30 +1163,48 @@ reflog remembers every position for ~90 days.
 Your kernel tree is backed up by nothing. This is the safety net — practised once while calm, so it
 is muscle memory when it isn't.
 
-### If you remember only four things
+### 11. And the uncomfortable, useful part
+
+We took your own `hello_rust` patch through the whole submission sequence — and then established
+that upstream would **reject it**, because it duplicates `rust_minimal.rs` and solves no problem
+anyone else has.
+
+That is not a criticism of building it. It was the right Day 4 exercise. But *learning exercise* and
+*contribution* are different things, and the test is whether you can finish the sentence **"without
+this, someone cannot ___"**. If you cannot, it stays on your fork.
+
+Your first real patch is far more likely to be a typo fix in `Documentation/`, or a bug you hit
+yourself and can reproduce.
+
+### If you remember only five things
 
 1. **A patch is text, and whitespace is data.** Anything that reformats mail breaks it.
 2. **Mail yourself first, and check `git am` applies it.** Arrival is not success.
 3. **Never commit to `master`,** and `--ff-only` is what enforces it.
 4. **A deleted branch is not gone** — `git reflog`, then `git checkout -b rescue <hash>`.
+5. **A patch must solve someone else's problem,** not prove that you learned something.
 
 ### The commands, in order
 
 ```bash
 cd "$LINUX_TREE"
-git checkout -b hello-rust
-git commit -s                                  # -s adds Signed-off-by
-git log --oneline; git show HEAD
+git checkout sanu0                             # the topic branch you already have
+git commit --amend -s                          # add Signed-off-by, fix the subject
+git log --oneline master..sanu0                # "B minus A" - my work, not upstream's
+git show HEAD; git show --stat HEAD
 
 git config --global rerere.enabled true
 
-# the drill: destroy and recover
+# the drill: destroy and recover - on a THROWAWAY, not on real work
+git checkout -b drill master
+git commit -s -am "drill commit"
 DOOMED=$(git rev-parse --short HEAD)
-git checkout master && git branch -D hello-rust
+git checkout master && git branch -D drill
 git reflog | head
-git checkout -b hello-rust "$DOOMED"
+git checkout -b rescue "$DOOMED"               # it was never gone
 
-git push github hello-rust                     # backup, never a PR
+git checkout sanu0
+git push --force-with-lease github sanu0       # backup, never a PR
 
 scripts/checkpatch.pl /tmp/p/*.patch
 scripts/get_maintainer.pl --no-rolestats -f rust/kernel/pci.rs
