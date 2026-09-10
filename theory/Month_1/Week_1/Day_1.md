@@ -6,6 +6,12 @@
 > **Time:** 2-3 hours. No kernel rebuilds today — you will work in userspace, where the loop is one
 > second instead of five minutes.
 >
+> **New to Rust syntax?** Day 1's first code block uses `struct`, `impl`, and `impl Drop for Noisy`,
+> but the roadmap does not formally teach structs until W1D4 and traits until W2D1. If any of those
+> look like noise, spend two hours on
+> [`Day_0_Rust_Primer.md`](Day_0_Rust_Primer.md) first — it covers exactly that gap, so ownership can
+> be the only new idea today.
+>
 > **Why this matters:** roughly two thirds of serious Linux CVEs are memory-safety bugs — use-after-free,
 > double-free, buffer overflow, data race. Ownership is the mechanism that makes most of them impossible
 > to write. Today is not "learning Rust syntax." It is learning the one idea the rest of the roadmap
