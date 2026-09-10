@@ -62,8 +62,8 @@ sudo apt install -y pipx && pipx install b4
 **⚠ Substitute your own values.** This goes into public kernel history permanently.
 
 ```bash
-git config --global user.name  "Kumar Sanu"
-git config --global user.email "kumarsanuofficial007@gmail.com"
+git config --global user.name  "Your Full Name"
+git config --global user.email "you@example.com"
 ```
 
 Rules, all enforced by maintainers:
@@ -316,8 +316,8 @@ For a machine where you have already done Step 0. **Edit the two identity lines 
 set -e
 
 # --- EDIT THESE TWO ---
-GIT_NAME="Kumar Sanu"
-GIT_MAIL="kumarsanuofficial007@gmail.com"
+GIT_NAME="Your Full Name"
+GIT_MAIL="you@example.com"
 # ----------------------
 
 sudo apt update && sudo apt install -y git git-email b4

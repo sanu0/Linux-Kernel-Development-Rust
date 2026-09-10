@@ -3564,10 +3564,10 @@ KernelRustBook expanded into the canonical resource: complete curriculum, CI-ver
 > the patch archives on `lore.kernel.org` and `lore.freedesktop.org`, and Nouveau's reverse-engineering
 > documentation. Work only from these.
 
-> ### ⚠ Read this before your first Nova commit — it is specific to you
+> ### ⚠ Read this before your first Nova commit — if you work for the hardware vendor
 >
-> Nova is a driver for **your employer's hardware**, and you are an NVIDIA employee. That is a genuine
-> advantage and the single highest-risk situation in this entire roadmap. The general employer guidance
+> If you are employed by the company whose hardware Nova drives, that is a genuine advantage and the
+> single highest-risk situation in this entire roadmap. The general employer guidance
 > in [Repo Layout & GitHub Setup](#repo-layout--github-setup) is not sufficient here. Resolve all of the
 > following **in writing, before you send a Nova patch** — not after:
 >
@@ -3576,7 +3576,7 @@ KernelRustBook expanded into the canonical resource: complete curriculum, CI-ver
 >   `Signed-off-by:`, and who has authority to approve it. Guessing here is the mistake you cannot undo,
 >   because `Signed-off-by:` is a legal certification under the DCO and the mailing list is a permanent
 >   public record
-> - [ ] **Get approval through the real channel.** Your manager and NVIDIA's open-source program office,
+> - [ ] **Get approval through the real channel.** Your manager and your employer's open-source program office,
 >   not a colleague's opinion. Ask for it in email so it exists later
 > - [ ] **Understand the contamination risk precisely.** You may have access to internal GPU documentation
 >   that the Nouveau and Nova communities reverse-engineered without. Internal material may help you
@@ -3586,7 +3586,7 @@ KernelRustBook expanded into the canonical resource: complete curriculum, CI-ver
 > - [ ] **Keep the provenance trail.** For anything non-obvious you contribute, be able to name the public
 >   source it came from: the upstream code, `docs.kernel.org/gpu/nova/`, a `lore` thread, or Nouveau's
 >   documentation. A patch whose provenance cannot be explained is worse than no patch, because it damages
->   trust — yours and NVIDIA's — that you cannot rebuild
+>   trust — yours and your employer's — that you cannot rebuild
 > - [ ] **Decide the boundary before it is tested.** "My learning project" and "company work" need an
 >   explicit, agreed line. It will be tested the first time something you built on your own evenings turns
 >   out to be useful at work, or vice versa

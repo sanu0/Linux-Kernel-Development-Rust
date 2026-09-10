@@ -525,11 +525,11 @@ the whole tree. One-time cost.
 ### 5. It worked, and we got a shell
 
 ```text
-ksanu@virtme-ng:~/LKD_RUST/kernel/linux$
+you@virtme-ng:~/LKD_RUST/kernel/linux$
 ```
 
-The hostname changed from `NV-D8M4FB4` to `virtme-ng`. **That prompt is how you know which machine you
-are talking to.** We were now inside an operating system we compiled ourselves.
+The hostname changed from your normal machine name to `virtme-ng`. **That prompt is how you know which
+machine you are talking to.** We were now inside an operating system we compiled ourselves.
 
 ### 6. The thing that confused us most
 

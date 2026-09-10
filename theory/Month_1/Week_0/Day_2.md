@@ -294,7 +294,7 @@ Do this first. Everything below assumes it.
 
 ```bash
 which gcc              # MUST be /usr/lib/ccache/gcc
-echo "$LINUX_TREE"     # MUST be /home/ksanu/LKD_RUST/kernel/linux
+echo "$LINUX_TREE"     # MUST be under $HOME, never under /mnt/
 df -h "$HOME" | tail -1
 nproc
 ```

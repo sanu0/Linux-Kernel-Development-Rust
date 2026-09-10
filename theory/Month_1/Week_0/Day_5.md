@@ -461,7 +461,7 @@ samples: rust: add a minimal hello-world module
 Add a sample module that logs a message from init, as a first
 end-to-end exercise of the kernel Rust toolchain.
 
-Signed-off-by: Kumar Sanu <kumarsanuofficial007@gmail.com>
+Signed-off-by: Your Full Name <you@example.com>
 ```
 
 Amending **rewrites the commit, so the hash changes.** Your old hash is still in the reflog, and
@@ -844,7 +844,7 @@ samples: rust: fix typo in hello-world module description
 
 s/lenght/length/ in the Kconfig help text.
 
-Signed-off-by: Kumar Sanu <kumarsanuofficial007@gmail.com>
+Signed-off-by: Your Full Name <you@example.com>
 ```
 
 **4. Build and boot it.** Not "it compiled" — actually load it:
