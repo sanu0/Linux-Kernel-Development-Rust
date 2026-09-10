@@ -6,6 +6,10 @@
 >
 > **Time:** 2-3 hours. No long builds today — the waiting is on mail delivery, not the compiler.
 >
+> **Setting up a new machine and don't want the theory?** Use
+> [`Send_Path_Upstream_Setup.md`](Send_Path_Upstream_Setup.md) — the same thing as a bare
+> copy-paste runbook, with the failure branches noted inline.
+>
 > **Why this matters:** Days 1-4 built a lab. A lab that cannot send patches is a very elaborate
 > way of reading someone else's code. Every contribution for the next two years goes through the
 > pipe you build today, and the failure modes are silent — a mail server that quietly reformats

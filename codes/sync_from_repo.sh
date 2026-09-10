@@ -13,31 +13,46 @@
 set -e
 
 : "${LKDRUST_REPO:?Set LKDRUST_REPO to your LKD_RUST folder. See header.}"
-SRC="$LKDRUST_REPO/codes"
-DST="$HOME/LKD_RUST/codes"
 
-[ -d "$SRC" ] || { echo "Source not found: $SRC"; exit 1; }
-mkdir -p "$DST"
+# Both trees are runnable code that must exist inside WSL:
+#   codes/  the per-day scripts and sources
+#   setup/  the machine bring-up scripts, including setup-upstream.sh
+SUBDIRS="codes setup"
 
 echo "REPO -> WSL"
-echo "  from: $SRC"
-echo "  to:   $DST"
 
-if command -v rsync > /dev/null 2>&1; then
-  rsync -a --exclude '.git' --exclude 'target' --exclude '*.ko' --exclude '*.o' \
-        "$SRC"/ "$DST"/
-else
-  cp -r "$SRC"/. "$DST"/
-fi
+for sub in $SUBDIRS; do
+  SRC="$LKDRUST_REPO/$sub"
+  DST="$HOME/LKD_RUST/$sub"
 
-# Windows editors may save CRLF; bash chokes on \r and checkpatch rejects it in kernel sources.
-find "$DST" -type f \
-  \( -name '*.sh' -o -name '*.rs' -o -name '*.c' -o -name '*.h' -o -name '*.py' \
-     -o -name '*.dts' -o -name '*.dtsi' -o -name '*.yaml' -o -name '*.toml' \
-     -o -name 'Makefile' -o -name 'Kconfig' \) \
-  -exec sed -i 's/\r$//' {} +
+  if [ ! -d "$SRC" ]; then
+    echo "  skip $sub/ (not in repo)"
+    continue
+  fi
+  mkdir -p "$DST"
+  echo "  $SRC -> $DST"
 
-find "$DST" -type f -name '*.sh' -exec chmod +x {} +
+  if command -v rsync > /dev/null 2>&1; then
+    rsync -a --exclude '.git' --exclude 'target' --exclude '*.ko' --exclude '*.o' \
+          "$SRC"/ "$DST"/
+  else
+    cp -r "$SRC"/. "$DST"/
+  fi
+
+  # Windows editors may save CRLF; bash chokes on \r and checkpatch rejects it in kernel sources.
+  find "$DST" -type f \
+    \( -name '*.sh' -o -name '*.rs' -o -name '*.c' -o -name '*.h' -o -name '*.py' \
+       -o -name '*.dts' -o -name '*.dtsi' -o -name '*.yaml' -o -name '*.toml' \
+       -o -name '*.example' \
+       -o -name 'Makefile' -o -name 'Kconfig' \) \
+    -exec sed -i 's/\r$//' {} +
+
+  find "$DST" -type f -name '*.sh' -exec chmod +x {} +
+done
 
 echo "Done. Files now in WSL:"
-find "$DST" -type f -not -path '*/target/*' | sed "s|$DST/|  |" | sort
+for sub in $SUBDIRS; do
+  DST="$HOME/LKD_RUST/$sub"
+  [ -d "$DST" ] || continue
+  find "$DST" -type f -not -path '*/target/*' | sed "s|$HOME/LKD_RUST/|  |" | sort
+done
