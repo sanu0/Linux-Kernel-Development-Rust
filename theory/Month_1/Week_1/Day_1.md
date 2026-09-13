@@ -1,4 +1,4 @@
-# M1W1D1 — Ownership, Moves, and Drop
+# M1W1D1 — Ownership, Moves, and Drop ✅ COMPLETED
 
 > **New to Rust syntax?** Today's code uses `struct`, `impl`, and `impl Drop for Noisy` on its first
 > page, but the roadmap does not formally teach structs until W1D4 and traits until W2D1. If those

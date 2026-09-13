@@ -1776,12 +1776,12 @@ KernelRustBook expanded into the canonical resource: complete curriculum, CI-ver
 
 ## Week 1 — Rust Ownership + The Kernel Source Tree
 
-### Day 1 — Ownership, Moves, and Drop
-- [ ] Ownership rules: one owner, moved on assignment, dropped at scope end
-- [ ] Move vs copy vs clone; `Copy` types and why they exist
-- [ ] `Drop`: deterministic destruction, drop order, why this matters enormously in a kernel (RAII replaces `goto err_unlock`)
-- [ ] What is *not* in kernel Rust: no `std`, no unwinding, no infallible allocation
-- [ ] **Code:** write a type whose `Drop` prints, and demonstrate drop order in nested scopes and on early return
+### Day 1 — Ownership, Moves, and Drop ✅
+- [x] Ownership rules: one owner, moved on assignment, dropped at scope end
+- [x] Move vs copy vs clone; `Copy` types and why they exist
+- [x] `Drop`: deterministic destruction, drop order, why this matters enormously in a kernel (RAII replaces `goto err_unlock`)
+- [x] What is *not* in kernel Rust: no `std`, no unwinding, no infallible allocation
+- [x] **Code:** write a type whose `Drop` prints, and demonstrate drop order in nested scopes and on early return
 
 ### Day 2 — Borrowing, References, and the Borrow Checker
 - [ ] Shared (`&T`) vs exclusive (`&mut T`) references; the aliasing rule
