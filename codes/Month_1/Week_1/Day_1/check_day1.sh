@@ -145,12 +145,55 @@ else
   fail "Vec drop order unexpected"
 fi
 
+# `./demo 3` must run section 3 alone, so predictions are not spoiled.
+if "$TMP/demo" 3 > "$TMP/one" 2>&1 && grep -q '^3\. Move' "$TMP/one" \
+   && ! grep -q '^1\. End of scope' "$TMP/one"; then
+  ok "./demo 3 runs only section 3 (no spoilers)"
+else
+  fail "./demo 3 did not run section 3 on its own"
+fi
+
+# ─────────────────────────────────────────────────────────────────
+section "raii_probe.rs — the goto ladder, deleted"
+
+PSRC="$DAY_DIR/raii_probe.rs"
+if [ ! -f "$PSRC" ]; then
+  fail "raii_probe.rs not found next to this script"
+elif rustc "$PSRC" -o "$TMP/probe" 2> "$TMP/pw"; then
+  if [ -s "$TMP/pw" ]; then warn "raii_probe.rs compiled with warnings"; else ok "raii_probe.rs compiles cleanly"; fi
+  "$TMP/probe" > "$TMP/pout" 2>&1
+  PFLAT=$(tr -d ' ' < "$TMP/pout" | tr '\n' ' ')
+  # Failing at the lock must release exactly what existed, newest first.
+  if printf '%s' "$PFLAT" | grep -q 'FAILEDtoacquirelock releasedirq releasedmemory probereturnederror'; then
+    ok "failure at step 3 releases irq, then memory — with no cleanup code in probe()"
+  else
+    fail "unexpected cleanup when step 3 fails"
+  fi
+  # Success tears down in reverse only because Device lists its fields in reverse.
+  if printf '%s' "$PFLAT" | grep -q 'probesucceeded;deviceinuse... releasedlock releasedirq releasedmemory'; then
+    ok "success tears down lock, irq, memory (struct fields drop top to bottom)"
+  else
+    fail "unexpected teardown order on success"
+  fi
+else
+  fail "raii_probe.rs COMPILE FAILED:"
+  sed 's/^/         | /' "$TMP/pw" | head -20
+fi
+
 # ─────────────────────────────────────────────────────────────────
 section "Your own work"
 
-[ -f "$DAY_DIR/my_ownership_demo.rs" ] \
-  && ok "my_ownership_demo.rs saved (your edited copy)" \
-  || warn "no my_ownership_demo.rs yet — Phase 6 asks you to save your edited version"
+MINE=$(ls "$DAY_DIR"/my_*.rs 2>/dev/null | head -1)
+if [ -n "$MINE" ]; then
+  ok "found $(basename "$MINE")"
+  if rustc "$MINE" -o "$TMP/mine" 2>/dev/null; then
+    ok "$(basename "$MINE") compiles"
+  else
+    warn "$(basename "$MINE") does not compile yet"
+  fi
+else
+  warn "no my_drop_order.rs yet — the 'Your Turn' part asks you to write and save one"
+fi
 
 # ─────────────────────────────────────────────────────────────────
 section "What no script can check"
@@ -158,18 +201,19 @@ section "What no script can check"
 cat <<'EOF'
   Answer these out loud. If any is shaky, re-read that concept before Day 2.
 
-    1. Why ownership instead of a garbage collector, in KERNEL terms?
-    2. Why does `let b = a;` make `a` unusable? What bug does that prevent?
-    3. Why can a type never be both Copy and Drop?
-    4. What prints, and in what order?
+    1. Name the three ways giving memory back can go wrong.
+    2. Why can the kernel not use a garbage collector?
+    3. Draw the stack-and-heap picture of a String. Why does `let b = a;`
+       move it instead of copying it, and what bug does that prevent?
+    4. Why can a type never be both Copy and Drop?
+    5. What prints, and in what order?
 
          let a = Noisy::new("a");
          { let b = Noisy::new("b"); let c = b; }
          let d = Noisy::new("d");
 
-    5. Describe how RAII removes the `goto err_unlock` ladder.
-       Did you read a real one in drivers/ ?
-    6. Name the three things kernel Rust does NOT have.
+    6. When raii_probe fails at step 3, what is released, in what order,
+       and where in probe() is the cleanup code?
     7. Why is unwrap() a bug in kernel code, not just poor style?
     8. Name four situations where Drop does not run.
        (One of them explains why you built the Week 0 samples as =m, not =y.)

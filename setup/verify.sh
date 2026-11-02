@@ -193,12 +193,20 @@ GM=$(git config --global user.email || true)
 [ -n "$GN" ] && ok "user.name: $GN"  || fail "git user.name unset — Signed-off-by needs it"
 [ -n "$GM" ] && ok "user.email: $GM" || fail "git user.email unset"
 case "$GN" in *[!\ ]\ *[!\ ]*) : ;; *) [ -n "$GN" ] && warn "user.name is one word — DCO wants a real full name" ;; esac
+case "$GN" in "Your Full Name"|"Your Name"|"Full Name") fail "user.name is a docs placeholder: $GN" ;; esac
+case "$GM" in *@example.com|*@example.org|*@example.net) fail "user.email is a placeholder: $GM" ;; esac
 SM=$(git config --global sendemail.smtpServer || true)
 [ -n "$SM" ] && ok "send-email via $SM" || fail "SMTP unset — run setup-upstream.sh"
 if git config --global sendemail.smtpPass > /dev/null 2>&1; then
   warn "sendemail.smtpPass is SET — a plaintext password in ~/.gitconfig. Consider unsetting it."
 else
   ok "no plaintext SMTP password stored"
+fi
+case "$(git config --global credential.helper)" in
+  store*) warn "credential.helper is 'store' — passwords land in plaintext in ~/.git-credentials" ;;
+esac
+if [ -f "$HOME/.git-credentials" ] && grep -q '^smtp' "$HOME/.git-credentials"; then
+  fail "~/.git-credentials holds an SMTP password in plaintext"
 fi
 git send-email --help > /dev/null 2>&1 && ok "git send-email available" || fail "git-email not installed"
 have b4 && ok "b4 $(b4 --version 2>&1 | head -1)" || warn "b4 not installed (optional)"

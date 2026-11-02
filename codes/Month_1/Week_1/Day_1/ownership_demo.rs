@@ -4,7 +4,9 @@
 // and here the edit->run loop is one second instead of a five-minute rebuild and
 // boot. Port the ideas to the kernel once you can predict the output.
 //
-//   rustc ownership_demo.rs -o /tmp/ownership_demo && /tmp/ownership_demo
+//   rustc ownership_demo.rs -o demo
+//   ./demo 3        run only section 3 — predict it first, then look
+//   ./demo          run every section
 //
 // No Cargo, no crates — same constraint the kernel works under.
 //
@@ -175,22 +177,33 @@ fn collections() {
     let _ = &v;
 }
 
+// `./demo 3` runs only section 3; plain `./demo` runs them all.
+// How this works (Option and match) is W1D4 material — ignore it for today.
+fn wanted(section: &str) -> bool {
+    match std::env::args().nth(1) {
+        Some(arg) => arg == section,
+        None => true,
+    }
+}
+
 fn main() {
     println!("=== ownership, moves, and Drop ===");
     println!("(predict each section before reading its output)");
 
-    scope_end();
-    nested_scope();
-    moves();
-    move_into_function();
-    early_return(1);
-    early_return(2);
-    early_return(0);
-    copy_types();
-    clones();
-    shadowing();
-    forgetting();
-    collections();
+    if wanted("1") { scope_end(); }
+    if wanted("2") { nested_scope(); }
+    if wanted("3") { moves(); }
+    if wanted("4") { move_into_function(); }
+    if wanted("5") {
+        early_return(1);
+        early_return(2);
+        early_return(0);
+    }
+    if wanted("6") { copy_types(); }
+    if wanted("7") { clones(); }
+    if wanted("8") { shadowing(); }
+    if wanted("9") { forgetting(); }
+    if wanted("10") { collections(); }
 
     println!("\n=== done ===");
 }

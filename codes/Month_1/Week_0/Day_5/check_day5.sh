@@ -39,7 +39,10 @@ MAIL="$(git config --global user.email)"
 if [ -n "$NAME" ]; then
   ok "user.name: $NAME"
   # A DCO sign-off requires a real name, which in practice means 2+ words.
+  # Placeholders copied from a doc pass that test, so reject them first.
   case "$NAME" in
+    "Your Full Name"|"Your Name"|"Full Name")
+      fail "'$NAME' is a placeholder from the docs — every new commit would carry it" ;;
     *[!\ ]\ *[!\ ]*) ok "looks like a full name" ;;
     *) warn "'$NAME' is a single word — Signed-off-by wants your real full name" ;;
   esac
@@ -52,6 +55,8 @@ if [ -n "$MAIL" ]; then
   case "$MAIL" in
     *@users.noreply.github.com)
       fail "a GitHub noreply address cannot RECEIVE review replies — use a real inbox" ;;
+    *@example.com|*@example.org|*@example.net)
+      fail "'$MAIL' is a placeholder address — review replies would go nowhere" ;;
     *) ok "address can receive mail" ;;
   esac
 else
@@ -132,6 +137,21 @@ if git config --global sendemail.smtpPass > /dev/null 2>&1; then
   info "remove it: git config --global --unset sendemail.smtpPass"
 else
   ok "no plaintext SMTP password stored (git will prompt)"
+fi
+
+# A `store` helper writes whatever git is given to ~/.git-credentials in
+# plaintext — including the SMTP password the first time send-email prompts.
+HELPER="$(git config --global credential.helper)"
+case "$HELPER" in
+  store*)
+    warn "credential.helper is 'store' — passwords are saved in plaintext to ~/.git-credentials"
+    info "switch: git config --global credential.helper 'cache --timeout=3600'" ;;
+  "") ok "no credential helper — git prompts for the SMTP password on every send" ;;
+  *)  ok "credential.helper: $HELPER" ;;
+esac
+if [ -f "$HOME/.git-credentials" ] && grep -q '^smtp' "$HOME/.git-credentials"; then
+  fail "~/.git-credentials holds an SMTP password in plaintext"
+  info "delete that line, then revoke the App Password and generate a new one"
 fi
 
 # ─────────────────────────────────────────────────────────────────

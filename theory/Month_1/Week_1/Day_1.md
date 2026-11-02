@@ -1,176 +1,175 @@
 # M1W1D1 — Ownership, Moves, and Drop ✅ COMPLETED
 
-> **New to Rust syntax?** Today's code uses `struct`, `impl`, and `impl Drop for Noisy` on its first
-> page, but the roadmap does not formally teach structs until W1D4 and traits until W2D1. If those
-> look like noise to you, spend two hours on [`Day_0_Rust_Primer.md`](Day_0_Rust_Primer.md) first.
-> Ownership should be the only new idea today.
+> **What you need to know already:** Rust up to structs — variables, functions, `if` and loops,
+> `struct`, and `impl` blocks with methods. Anything beyond that is explained in a **🆕 New Rust**
+> box at the moment it first appears, so you never meet syntax nobody told you about.
+>
+> **Time:** about 90 minutes, including running every example. No kernel builds today.
 
-Today you learn the one idea that the rest of this roadmap stands on.
+Today you learn the one idea the rest of this roadmap stands on.
 
-Everything else you will study over the next eighteen months — device drivers, memory management,
-locking, DMA, GPU command submission — is built on top of what you learn today. If ownership stays
-fuzzy, you will spend Month 5 sprinkling `unsafe` into your code hoping the compiler stops
-complaining, and you will not know whether your driver is correct. If ownership becomes second
-nature, most of the rest of Rust turns out to be consequences of it.
+Device drivers, memory management, locking, DMA — everything you study over the next eighteen months
+is built on what you learn today. If ownership stays fuzzy, you will spend later months fighting the
+compiler without knowing why. If it becomes clear, most of the rest of Rust turns out to be this one
+idea applied again and again.
 
-So today is not about memorising syntax. It is about understanding one rule deeply enough that you
-can predict what the compiler will do before you compile.
+The day is built around small programs. Before you run each one, you will **predict its output** —
+write your guess down, then run it and compare. When your guess is wrong, that is the moment you
+actually learn something, so do not skip the guessing.
 
-There are no kernel builds today. You will work in userspace, where the edit-compile-run loop takes
-about one second instead of five minutes. The ownership rules are exactly the same in both places,
-and there is no sense waiting five minutes to learn something you can learn in one second.
-
-**Time:** two to three hours, most of it spent running small experiments and predicting their output.
-
----
-
-## Why This Matters More In The Kernel Than Anywhere Else
-
-Before we get to the rules, it is worth understanding what problem they solve, because ownership can
-feel like a strange restriction until you see what it is protecting you from.
-
-Roughly two thirds of the serious security holes found in the Linux kernel are memory-safety bugs.
-Not logic errors, not design mistakes — memory bugs. Somebody freed a pointer and then used it.
-Somebody freed the same pointer twice. Somebody wrote past the end of a buffer. Somebody read a
-variable while another CPU was writing it.
-
-These are not bugs written by careless people. The Linux kernel is written by some of the most
-careful programmers alive, reviewed by more careful programmers, and tested by automated tools that
-run continuously. The bugs happen anyway, because the problem is genuinely hard and humans do not
-scale to it.
-
-Ownership is the mechanism that makes most of those bugs impossible to write in the first place. Not
-"unlikely." Not "caught by a tool if you remember to run it." Impossible, in the sense that the code
-does not compile.
-
-That is the entire reason Rust was allowed into the Linux kernel after thirty years of C. Not
-because it is faster — the C is already fast. Not because it is more pleasant — that is a matter of
-taste. It got in because it removes a category of bug that has been costing the kernel community
-enormous amounts of time and users enormous amounts of trust.
+| Part | What you will learn | Time |
+|---|---|---|
+| Before you start | Set up the example programs | 5 min |
+| 1 | The problem ownership solves | 10 min |
+| 2 | The three rules, and when a value dies | 15 min |
+| 3 | Moves | 15 min |
+| 4 | Copy and Clone | 10 min |
+| 5 | Drop, and why the kernel cares | 15 min |
+| 6 | How kernel Rust is different | 10 min |
+| Your turn | Write one yourself, and check yourself | 10 min |
 
 ---
 
-## The Question Every Programming Language Has To Answer
+## Before You Start (5 minutes)
 
-Here is the question, and it is a surprisingly hard one:
+All of today happens in normal userspace Rust, not inside the kernel. The ownership rules are exactly
+the same in both places, and here a program compiles in about one second instead of a five-minute
+kernel rebuild.
 
-**When is it safe to free this memory?**
+```bash
+bash ~/LKD_RUST/codes/sync_from_repo.sh
 
-Say your program asks for some memory. Later it stops needing it. That memory has to go back, or
-your program grows until the machine dies. So something, somewhere, has to decide the exact moment
-when nothing will ever look at that memory again.
+mkdir -p ~/rust-scratch && cd ~/rust-scratch
+cp ~/LKD_RUST/codes/Month_1/Week_1/Day_1/ownership_demo.rs .
+cp ~/LKD_RUST/codes/Month_1/Week_1/Day_1/raii_probe.rs .
+rustc ownership_demo.rs -o demo
+```
 
-Getting that moment wrong is catastrophic in two different directions. Free it too early and some
-other part of the program is still holding a pointer to it — that pointer now points at memory that
-has been handed to somebody else. Read through it and you get someone else's data. Write through it
-and you corrupt someone else's data. This is a **use-after-free**, and it is the single most
-exploited bug class in operating systems. Free it twice and the allocator's internal bookkeeping
-gets corrupted, which is a **double free**, and attackers have built entire exploit techniques
-around it. Never free it at all and you have a **leak**, which is the mildest of the three but will
-still eventually take down a machine that is supposed to run for years.
+If you see `rustc: command not found`, Rust is installed in `~/.cargo/bin` but your shell has not
+been told where to look. Fix it for this terminal with:
 
-Only three answers to this question have ever been found. Every language you have used picks one.
+```bash
+export PATH="$HOME/.cargo/bin:$PATH"
+```
 
-### Answer one: you decide, by hand
+The demo has ten numbered sections. You can run just one of them:
 
-This is what C does. You call `kmalloc`, and later you call `kfree`, and it is entirely your job to
-make sure that second call happens exactly once, after the last use, on every possible path through
-your code.
+```bash
+./demo 3      # runs only section 3
+./demo        # runs all ten
+```
 
-The phrase doing the damage there is **every possible path**. A function with one early return and
-one error case has three paths. Add another failure point and you have four. Add a loop with a
-`break` and it grows again. Each of those paths needs the right cleanup, in the right order, and
-nobody will tell you if you miss one. The happy path gets tested constantly because that is what
-the code does all day. The error paths get tested when something goes wrong, which is to say almost
-never, which is to say in production.
-
-C gives you complete control and complete responsibility. It works, and it has built everything we
-use. It also produces that CVE list.
-
-### Answer two: a runtime figures it out while you run
-
-This is what Java, Go, Python and C# do. A garbage collector periodically pauses your program, walks
-through memory working out what is still reachable from your live variables, and frees everything
-else.
-
-It genuinely solves the problem. You cannot have a use-after-free in Java, because the collector
-will not free anything you can still reach. The cost is that a piece of machinery has to be running
-alongside your program forever, using memory and CPU, and stopping your program at moments it
-chooses rather than moments you choose.
-
-**The kernel cannot use this, and it is worth understanding exactly why**, because the reason is not
-"it would be slow."
-
-A garbage collector needs to pause execution to do its work safely. Now think about what "execution"
-means inside a kernel. It includes the code that runs when a network packet arrives. It includes the
-code that runs when a disk controller signals that a write finished. It includes the code that runs
-when a timer expires. Some of that code runs in **interrupt context**, where the rules are severe:
-you may not sleep, you may not be preempted, and you must finish quickly because the hardware is
-waiting. There is no safe moment to say "hold on, I need to walk the heap."
-
-And there is a second problem, more fundamental. A garbage collector is a program, and programs need
-something to run them. In userspace, the collector runs because the kernel schedules it. But the
-kernel *is* the bottom of the stack. There is nothing underneath it to run a collector on its
-behalf. You would have to build one into the kernel itself, and it would have to be correct in
-interrupt context, and at that point you have made the problem harder rather than easier.
-
-So garbage collection is off the table. Not by preference — by structure.
-
-### Answer three: the compiler figures it out before you run
-
-This is Rust's answer, and it is the interesting one.
-
-The compiler tracks, at compile time, exactly where each value's life ends. Then it inserts the
-cleanup code there, into the binary, before your program ever runs. When you execute the program
-there is no collector, no bookkeeping, no pauses, and no runtime checks. The `free` is simply
-sitting there in the machine code, at a place the compiler proved is correct.
-
-Read that again, because it is the whole idea. **The freeing code still exists. You just did not
-type it, and the compiler put it somewhere it can prove is safe.**
-
-That is why this approach works in a kernel when garbage collection does not. There is nothing extra
-running. The generated code looks like well-written C — because it *is* what well-written C would
-have been, if a human had remembered every path.
-
-The price is that you have to convince the compiler. It will not accept code it cannot prove is
-safe, even when you happen to be right. That is the trade, and it is the source of every frustrating
-afternoon you will have with Rust in the next two months. It is worth it.
+That way you can make a guess about section 3 without seeing the answers for the other nine.
 
 ---
 
-## The Three Rules
+## Part 1 — The Problem Ownership Solves (10 minutes)
 
-Here are the rules the whole system rests on:
+### Two places memory lives
 
-1. **Every value has exactly one owner.**
-2. **Assigning or passing a value moves ownership. There is still only one owner.**
-3. **When the owner goes out of scope, the value is dropped.**
+When your program runs, its data lives in one of two places, and the difference matters for
+everything today.
 
-That is genuinely all of it. Everything for the rest of today is these three sentences worked out in
-detail, and everything for the rest of the year is these three sentences applied to hardware.
+The **stack** holds values whose size is known when the program is compiled — an `i32` is always 4
+bytes, a `bool` is always 1. The stack is fast, and its cleanup is automatic: when a function
+returns, everything it put on the stack disappears with it.
 
-Let us take them one at a time.
+The **heap** holds things whose size is not known in advance, or can change — some text the user
+typed, or a list that keeps growing. To use the heap, your program asks for a chunk of memory of the
+size it needs. And here is the important part: **that chunk must be given back later.** Nothing gives
+it back automatically.
+
+A `String` uses both. Look at this line:
+
+```rust
+let s = String::from("hello");
+```
+
+The variable `s` itself sits on the stack, and it is small: just three numbers. One is the address
+of the text, one is how long the text is, and one is how much room was reserved. The text itself,
+the five letters, sits on the heap:
+
+```text
+   s  (on the stack)                    the heap
+   ┌──────────────────┐               ┌───┬───┬───┬───┬───┐
+   │ pointer     ─────┼─────────────▶ │ h │ e │ l │ l │ o │
+   │ length      5    │               └───┴───┴───┴───┴───┘
+   │ capacity    5    │
+   └──────────────────┘
+```
+
+Remember that picture. It explains almost everything in Parts 3 and 4.
+
+### The hard question
+
+Somebody has to give that heap memory back, and they have to pick exactly the right moment. There
+are three ways to get it wrong.
+
+If you give it back **too early**, some other part of the program may still use it. That memory now
+belongs to something else, so reading it gives you someone else's data, and writing it corrupts
+someone else's data. This is called a **use-after-free**, and it is the most exploited kind of bug in
+operating systems.
+
+If you give it back **twice**, the code that manages the heap gets confused about what is free and
+what is in use. This is a **double free**, and attackers have whole techniques built around it.
+
+If you **never** give it back, your program slowly eats memory until the machine runs out. This is a
+**leak**. It is the mildest of the three, but a kernel is supposed to run for years.
+
+### Three answers
+
+Every programming language picks one of three answers to the question "when do we give memory back?"
+
+**C makes you do it by hand.** You call `kmalloc` to get memory and `kfree` to give it back, and it is
+entirely your job to call `kfree` exactly once, after the last use, on every path through your code
+— including every error path. Humans miss paths. The Linux kernel is written and reviewed by very
+careful people, and studies of large C codebases keep finding the same thing: about two thirds of
+serious security bugs are memory bugs like the three above.
+
+**Java and Go use a garbage collector**, a helper that runs alongside your program, pauses it every
+so often, finds memory nothing uses any more, and frees it. The kernel cannot use this. There is
+nothing underneath the kernel to run such a helper — the kernel *is* the bottom. And some kernel code,
+like the code that runs when a network card signals that a packet arrived, is not allowed to pause
+at all.
+
+**Rust's answer is ownership.** The compiler works out, while compiling, exactly where each value's
+life ends, and writes the "give it back" code there for you. When the program runs, there is no
+helper and no pausing. The cleanup code is simply sitting in the program at a place the compiler
+proved is correct.
+
+That is the whole idea, and it is worth reading twice: **the cleanup still happens; you just do not
+write it, and the compiler puts it somewhere it can prove is safe.** That is why Rust was allowed
+into the Linux kernel.
 
 ---
 
-## Rule One: Every Value Has Exactly One Owner
+## Part 2 — The Three Rules, and When a Value Dies (15 minutes)
 
-A **value** is a thing in memory: a number, a string, a struct, a buffer. An **owner** is a variable
-that is responsible for that value's cleanup.
+Ownership comes down to three rules:
 
-The important word is *exactly*. Not "at least one." Not "one or more." Exactly one. At any moment,
-for any value, there is precisely one variable whose job it is to clean it up.
+1. **Every value has exactly one owner** — one variable responsible for cleaning it up.
+2. **When you assign a value or pass it to a function, ownership moves.** There is still only one owner.
+3. **When the owner goes out of scope, the value is dropped** — its cleanup runs.
 
-This is the whole trick, and it is almost disappointingly simple once you see it. Double frees
-happen when two pieces of code both think they should free something. If the language guarantees
-that only one place ever has that responsibility, the bug cannot occur. Not "is caught" — cannot
-occur.
+We will look at rule 3 first, because it is the easiest to see, and rule 2 makes more sense after it.
 
-To see ownership working, we need to be able to watch values being destroyed. So throughout today we
-will use a small type that announces its own death:
+A **scope** is the region between a `{` and its matching `}` — the body of a function, or a block
+inside it. When the program leaves a scope, every value owned by a variable declared inside that
+scope is **dropped**, which means its cleanup runs and any heap memory it owns is given back.
+
+### A type that announces its own death
+
+To watch values being dropped, we will use a small struct that prints a message when it dies:
 
 ```rust
 struct Noisy(&'static str);
+
+impl Noisy {
+    fn new(name: &'static str) -> Self {
+        println!("      make: {}", name);
+        Noisy(name)
+    }
+}
 
 impl Drop for Noisy {
     fn drop(&mut self) {
@@ -179,40 +178,34 @@ impl Drop for Noisy {
 }
 ```
 
-Do not worry too much about the syntax. `struct Noisy(&'static str)` says "a `Noisy` holds one piece
-of text." The `impl Drop for Noisy` block says "when a `Noisy` is destroyed, print this message."
-The text is a string literal baked into the program, so a `Noisy` owns no memory of its own — which
-is deliberate, because it means the only interesting thing about it is *when it dies*.
+The `impl Noisy` block should look familiar: it gives `Noisy` a `new` function that prints a message
+and builds the struct. The other two pieces are new.
 
-We will also give it a constructor that announces birth, so you can see both ends:
+> **🆕 New Rust — `&'static str`**
+>
+> This is the type of a string literal, like `"first"`. The text is built into the program itself and
+> exists for the whole time the program runs. The `'static` part is a lifetime, which you will meet
+> properly in Week 3; for today, read `&'static str` as simply "a string literal".
+>
+> We use it so that a `Noisy` owns no heap memory of its own. That way the only interesting thing
+> about it is *when it dies*.
 
-```rust
-impl Noisy {
-    fn new(name: &'static str) -> Self {
-        println!("      make: {}", name);
-        Noisy(name)
-    }
-}
-```
+> **🆕 New Rust — traits, and `impl Drop for Noisy`**
+>
+> You already know `impl Noisy { ... }`, which adds methods to `Noisy`. The line
+> `impl Drop for Noisy` is a different kind of `impl`.
+>
+> `Drop` is a **trait**. A trait is a named set of methods that a type can promise to provide.
+> Writing `impl Drop for Noisy` means "Noisy provides what the Drop trait asks for", and `Drop` asks
+> for exactly one method: `drop`, which says what to do when a value dies.
+>
+> `Drop` is special: **the compiler calls `drop` for you, automatically**, at the moment the value
+> dies. You never call it yourself. You will learn traits properly in Week 2; today you only need to
+> recognise this one.
 
-Now we can watch.
+### Values die at the end of their scope, in reverse order
 
----
-
-## Rule Three, Out Of Order: When Does A Value Die?
-
-We are going to skip rule two for a moment, because rule three is easier and rule two makes more
-sense once you have seen it.
-
-Rule three says a value is dropped when its owner goes out of scope. So: what is a scope, and when
-does something go out of one?
-
-A scope is a region of code delimited by curly braces. The body of a function is a scope. A bare
-block inside a function is a scope. The body of an `if`, or a loop, is a scope. When execution
-leaves a scope — by reaching the closing brace, by hitting a `return`, or by an error propagating
-out through `?` — every value owned by a variable declared inside that scope is destroyed.
-
-Here is the simplest possible demonstration:
+Here is section 1 of the demo:
 
 ```rust
 fn scope_end() {
@@ -223,11 +216,14 @@ fn scope_end() {
 }
 ```
 
-Before you read on, decide what this prints.
+The `_` at the start of each name just tells the compiler "I know I never read this variable", so it
+does not warn us.
 
-Here is what actually happens:
+> **▶ Try it.** Write down what you think this prints, including the order of the three drops. Then
+> run `./demo 1`.
 
 ```text
+1. End of scope, reverse declaration order
       make: first
       make: second
       make: third
@@ -237,119 +233,201 @@ Here is what actually happens:
       drop: first
 ```
 
-Two things to notice.
-
-The first is that all three drops happen *after* the "end of function" message. The values live
-until the closing brace, and then all three die. Nothing was cleaned up early just because we
-stopped using it.
-
-The second is the order, and it is the more important observation. They are destroyed **backwards**
-— third, then second, then first. Last created, first destroyed.
+Two things to notice. First, all three drops happen *after* the "end of function" line: values live
+until the closing brace. Second, and more important, they die **backwards**: third, then second,
+then first. Last made, first destroyed.
 
 ### Why backwards?
 
-This is not an arbitrary choice, and understanding the reason will save you from being surprised
-later.
+Think about how you got here. You made `first`. Then you made `second`, and `second` might have been
+built using `first` — it might rely on it in some way. Then you made `third`, which might rely on
+either of them. Later things can depend on earlier things, but earlier things cannot depend on later
+ones, because the later ones did not exist yet.
 
-Think about how you got to the end of that function. You made `first`. Then you made `second`, and
-`second` might have been built using `first` — it might hold a reference to it, or a pointer into
-it, or some resource derived from it. Then you made `third`, which might depend on either of them.
+So if you destroy in reverse order, then whenever a value is destroyed, everything it might rely on
+is still alive. Destroy in forward order, and `first` disappears while `second` might still need it.
 
-Later things can depend on earlier things. Earlier things cannot depend on later things, because
-they did not exist yet.
+Picture a stack of plates: you add plates on top, and you take them off the top. The last plate you
+put down is the first one you pick up.
 
-So if you destroy in reverse order, then at the moment any value is destroyed, everything it could
-possibly depend on is still alive. Its destructor can safely touch anything it was built from.
-
-Destroy in forward order and that guarantee vanishes. `first` dies, and then `second`'s destructor
-runs and reaches for something that is already gone.
-
-The concrete kernel version of this: imagine you take a lock, and then create something the lock
+This matters a lot in the kernel. Suppose you take a lock, and then create something that the lock
 protects. You want the protected thing cleaned up while you still hold the lock, and the lock
-released afterwards. Reverse order gives you exactly that, for free, because you declared the lock
-first and the protected thing second.
+released last. Reverse order gives you exactly that, for free.
 
-Think of it as a stack. Each new value is pushed on top. At the end of the scope you pop them off,
-which necessarily happens top-down.
+### A block inside a function is its own scope
+
+```rust
+let _outer = Noisy::new("outer");
+{
+    let _inner = Noisy::new("inner");
+    println!("      -- leaving inner block --");
+}
+println!("      -- back in outer, inner is already gone --");
+```
+
+> **▶ Try it.** Predict, then run `./demo 2`.
+
+```text
+2. Nested scope drops early
+      make: outer
+      make: inner
+      -- leaving inner block --
+      drop: inner
+      -- back in outer, inner is already gone --
+      drop: outer
+```
+
+`inner` dies at the inner `}`, not at the end of the function. This gives you control: if you want
+something released halfway through a function, such as a lock, you put it inside a block.
+
+### Two surprises
+
+These two catch almost everyone, so it is better to meet them now.
+
+**Reusing a name does not destroy the old value.** You probably met *shadowing* when learning
+variables: writing `let v = ...` a second time makes a new variable with the same name.
+
+```rust
+let v = Noisy::new("shadowed");
+let v = Noisy::new("shadowing");
+```
+
+You might expect the first value to die when its name is taken. It does not:
+
+```text
+8. Shadowing: the old value lives until end of scope
+      make: shadowed
+      the name v refers to: shadowed
+      make: shadowing
+      the name v now refers to: shadowing
+      but BOTH values are still alive — only the name was reused
+      drop: shadowing
+      drop: shadowed
+```
+
+Shadowing changes which value a *name* points to. The old value still exists until the end of the
+scope; you just cannot reach it any more. In the kernel this matters: if the old value was holding a
+lock, the lock is still held.
+
+**A list drops its items front to back.**
+
+> **🆕 New Rust — `Vec` and `vec![...]`**
+>
+> A `Vec` is a list that can grow, like an array whose length can change. `vec![a, b, c]` creates
+> one holding `a`, `b` and `c`. The items live on the heap; the `Vec` itself owns them.
+
+```rust
+let v = vec![Noisy::new("elem0"), Noisy::new("elem1"), Noisy::new("elem2")];
+```
+
+```text
+10. Vec drops its elements front to back
+      make: elem0
+      make: elem1
+      make: elem2
+      -- vec about to go out of scope --
+      drop: elem0
+      drop: elem1
+      drop: elem2
+```
+
+Forwards, not backwards. This is not a contradiction. "Reverse order" is a rule about **variables
+in a scope**, where later ones may depend on earlier ones. A `Vec` is one value that holds several
+items side by side, with no dependency between them, so it simply walks them in order. Fields inside
+a struct work the same way, top to bottom — keep that in mind, because it comes back in Part 5.
+
+> **▶ Try it.** Run `./demo 8` and `./demo 10` and check them against the outputs above.
 
 ---
 
-## Rule Two: Assignment Moves
+## Part 3 — Moves (15 minutes)
 
-Now the rule that will annoy you for about a week and then feel obvious forever.
-
-In most languages, `b = a` gives you two variables referring to the same thing, or two independent
-copies, depending on the language and the type. In Rust, for most types, it does something else: it
-**transfers ownership** from `a` to `b`, and `a` becomes unusable.
+### What `let b = a;` does to a String
 
 ```rust
-let a = Noisy::new("a");
+let a = String::from("hello");
 let b = a;
-println!("{}", a.0);   // compile error
 ```
 
-That third line does not compile. The compiler says:
+In many languages, this would give you two names for the same text. Rust does something different,
+and the stack-and-heap picture from Part 1 shows why.
+
+When `b = a` runs, the three numbers on the stack — the pointer, the length, and the capacity — are
+copied into `b`. The text on the heap is **not** copied. So now two variables point at the same five
+letters:
+
+```text
+   a  ┌──────────────┐
+      │ pointer ─────┼───┐
+      │ length  5    │   │      ┌───┬───┬───┬───┬───┐
+      └──────────────┘   ├────▶ │ h │ e │ l │ l │ o │
+   b  ┌──────────────┐   │      └───┴───┴───┴───┴───┘
+      │ pointer ─────┼───┘
+      │ length  5    │
+      └──────────────┘
+```
+
+Now think about rule 3. At the end of the scope, both `a` and `b` go out of scope. If both were owners,
+both would free the text. The same memory would be given back twice — a double free.
+
+Rust prevents this with rule 2: **after `let b = a;`, ownership has moved to `b`, and `a` is no longer
+usable.** There is only ever one owner, so the text is freed exactly once.
+
+### What happens if you use `a` anyway
+
+```rust
+let a = String::from("hello");
+let b = a;
+println!("b = {}", b);
+println!("a = {}", a);
+```
+
+This does not compile. Here is the real message:
 
 ```text
 error[E0382]: borrow of moved value: `a`
+ --> move_string.rs:5:24
   |
-  |     let a = Noisy::new("a");
-  |         - move occurs because `a` has type `Noisy`,
-  |           which does not implement the `Copy` trait
-  |     let b = a;
+2 |     let a = String::from("hello");
+  |         - move occurs because `a` has type `String`, which does not implement the `Copy` trait
+3 |     let b = a;
   |             - value moved here
-  |     println!("{}", a.0);
-  |                    ^^^ value borrowed here after move
+4 |     println!("b = {}", b);
+5 |     println!("a = {}", a);
+  |                        ^ value borrowed here after move
 ```
 
-Take a moment with that error, because `rustc` errors are unusually informative and learning to read
-them properly is most of learning Rust. It tells you three separate things: where the value was
-created and why it moves rather than copies, exactly which line moved it, and exactly which line
-tried to use it afterwards. Most compilers would give you one of those. This gives you the whole
-story.
+Learn to read these messages properly, because they are one of the best things about Rust. This one
+points at three lines and tells you the whole story: where `a` was created (and why it moves instead
+of being copied), which line moved it, and which line tried to use it afterwards.
 
-### Why would a language do this?
+Notice what kind of error this is. The double free was not caught while the program ran — **the
+program was never built.** The bug cannot happen, because code containing it does not compile.
 
-Because of rule one. There must be exactly one owner.
+### What a move actually costs
 
-Suppose Rust let both `a` and `b` refer to the value. At the end of the scope, both go out of scope.
-Both are owners. Both run the destructor. The value is freed twice. That is a double free — one of
-the two worst bugs in the C list.
+Almost nothing. A move copies the few numbers on the stack — for a `String`, the pointer, length and
+capacity — and that is all. It does not copy the text, does not ask for memory, does not give memory
+back, and does not run any cleanup. Mostly, a move is the compiler updating its notes about which
+variable is now responsible for the value.
 
-Rust's solution is not to add a runtime check, or a reference count, or a flag saying "already
-freed." All of those cost something at runtime. Instead it simply decides that after `let b = a`,
-the name `a` no longer refers to anything. Using it is not a runtime error; it is a compile error.
-The bug is not detected — it is unrepresentable.
+You can see this with `Noisy`:
 
-### What actually happens at runtime during a move?
-
-This confuses almost everyone at first, so let us be precise: **essentially nothing happens.**
-
-A move is not a copy. It is not a deep copy. It does not allocate. It does not free. It does not run
-a destructor. Depending on the type, it may copy a few bytes — for something like a `Vec`, the
-pointer, length and capacity get copied, which is three machine words — and the optimizer frequently
-removes even that.
-
-What a move really is, is a **compile-time bookkeeping change**. The compiler updates its record of
-which variable is responsible for cleaning up that value, and refuses to let you use the old name.
-The value itself does not go anywhere. It is the same bytes, at the same address, answering to a
-different name.
-
-You can see this in the output:
+> **▶ Try it.** Predict how many `make` lines and how many `drop` lines section 3 prints. Then run
+> `./demo 3`.
 
 ```text
+3. Move: one value, one owner, one drop
       make: a
       moved a -> b, no drop happened during the move
       drop: a
 ```
 
-**One `make`, one `drop`.** The move produced no extra work and destroyed nothing. The value was
-created once and destroyed once, which is exactly right. The drop happens at the end of `b`'s scope,
-because `b` is the owner now.
+**One make, one drop.** The value was created once and destroyed once. The move in between destroyed
+nothing. The drop happens when `b`, the new owner, goes out of scope. The message still says `a`
+because that is the text the value was created with — the value did not change, only its owner did.
 
-### Passing to a function moves too
-
-Handing a value to a function is the same operation as assignment, so it moves in the same way:
+### Passing a value to a function also moves it
 
 ```rust
 fn consume(n: Noisy) {
@@ -363,68 +441,96 @@ fn move_into_function() {
 }
 ```
 
+> **▶ Try it.** Where does the drop happen: inside `consume`, or back in `move_into_function`?
+> Run `./demo 4`.
+
 ```text
+4. Move into a function: it drops there, not here
       make: x
       consume() received x
       drop: x
       back in caller; x is already gone
 ```
 
-Look at where the drop happens. It is *inside* `consume`, before we get back to the caller. When you
-passed `x` to `consume`, you handed over ownership. The parameter `n` became the owner. When
-`consume` returned, `n` went out of scope, and the value died there.
+The drop happens **inside `consume`**. Calling `consume(x)` moved ownership into the parameter `n`.
+When `consume` finished, `n` went out of scope, and the value died there. The caller owns nothing any
+more, so it has nothing to clean up.
 
-The caller no longer has anything to clean up, because the caller no longer owns anything. If you
-try to use `x` after calling `consume(x)`, you get the same `E0382` error as before.
+This makes function signatures say something important. In C, if a function takes a pointer, the
+signature does not tell you who is supposed to free the memory — you have to read the documentation
+and hope it is correct. In Rust, `fn consume(n: Noisy)` says in the signature itself: *I am taking
+this, and it is mine now.* Tomorrow you will learn how a function can look at a value *without*
+taking it.
 
-This is worth sitting with, because it changes how you read function signatures. In C, passing a
-pointer tells you nothing about who frees it — you have to read the documentation, or the
-implementation, or guess. In Rust, `fn consume(n: Noisy)` says in the signature itself: *I am taking
-this, it is mine now, do not expect it back.* Whereas `fn look(n: &Noisy)` says: *I am only
-borrowing it, you keep it.* The ownership contract is in the type, checked by the compiler, and it
-cannot drift out of date the way a comment can.
+### Break it on purpose
+
+> **▶ Try it.** Open `ownership_demo.rs`, find `fn moves()`, and remove the `//` from the line
+> `// println!("{}", a.0);`. Compile with `rustc ownership_demo.rs -o demo` and read the full message.
+> Then put the `//` back.
+
+One more, which looks harmless. Put this in a new file called `loop_move.rs` and compile it:
+
+```rust
+fn consume(s: String) {
+    println!("{}", s);
+}
+
+fn main() {
+    let s = String::from("hi");
+    for _ in 0..2 {
+        consume(s);
+    }
+}
+```
+
+The important lines of the error:
+
+```text
+error[E0382]: use of moved value: `s`
+7 |     for _ in 0..2 {
+  |     ------------- inside of this loop
+8 |         consume(s);
+  |                 ^ value moved here, in previous iteration of loop
+```
+
+The first time round the loop, `s` is moved into `consume`. The second time round, there is nothing
+left to move. The compiler sees this even though the loop only runs twice.
 
 ---
 
-## The Exception: Types That Copy Instead Of Moving
+## Part 4 — Copy and Clone (10 minutes)
 
-Now, having explained all that, here is something that appears to contradict it:
+### Why integers do not move
 
 ```rust
-let a: i32 = 42;
-let b = a;
-println!("a = {}, b = {}", a, b);   // works fine, both are usable
+let x: i32 = 5;
+let y = x;
+println!("x = {}, y = {}", x, y);
 ```
 
-No error. Both variables work. Why the inconsistency?
+```text
+x = 5, y = 5
+```
 
-Because for an `i32` there is **nothing to clean up**.
+No error — both work. That seems to break rule 2, but it does not. Go back to the stack-and-heap
+picture: an `i32` lives **entirely on the stack**. There is nothing on the heap, so there is nothing
+to give back when it dies. Copying its four bytes produces a second, complete, independent number,
+and no double free is possible.
 
-Everything we said about moves was in service of one goal: making sure the cleanup happens exactly
-once. But an `i32` is four bytes sitting directly in a register or on the stack. It owns no heap
-allocation, holds no lock, refers to no file. When an `i32` goes out of scope, precisely nothing
-needs to happen.
+Rust marks types like this as **`Copy`**. A `Copy` type is copied when you assign it, instead of
+moved. Integers, floating-point numbers, `bool` and `char` are `Copy`, and so are tuples and arrays
+made only of those. Your own structs are only `Copy` if you ask for it, and only when every field is
+itself `Copy`.
 
-So duplicating the bytes is completely harmless. You get two independent, equally valid integers.
-There is no shared resource to free twice, because there is no resource at all. Forcing you to write
-`a.clone()` for integers would add ceremony and buy you nothing.
+> **🆕 New Rust — `#[derive(...)]`**
+>
+> A line like `#[derive(Clone, Copy)]` above a struct asks the compiler to write some trait
+> implementations for you, so you do not have to. You may have seen `#[derive(Debug)]` in the
+> structs chapter; it is the same idea.
 
-Rust marks these types with a trait called `Copy`, and the meaning of `Copy` is precise:
+### A type can never be both Copy and Drop
 
-> **`Copy` means: duplicating this value's bytes produces another completely valid, completely
-> independent value of this type.**
-
-Which types are `Copy`? All the integers, `bool`, `char`, the floats, shared references (`&T`), and
-structs, tuples and arrays made entirely of `Copy` things. What is *not* `Copy` is anything that
-owns something: a `String`, a `Vec`, a file handle, a lock guard, a device.
-
-### The rule that makes this click
-
-Here is the constraint that ties the whole thing together, and it is worth committing to memory:
-
-**A type can never be both `Copy` and `Drop`.**
-
-Try it and the compiler refuses:
+Try to make a type that is `Copy` and also has a `Drop`:
 
 ```rust
 #[derive(Clone, Copy)]
@@ -436,138 +542,97 @@ impl Drop for Bad {
 ```
 
 ```text
-error[E0184]: the trait `Copy` cannot be implemented for this type;
-              the type has a destructor
+error[E0184]: the trait `Copy` cannot be implemented for this type; the type has a destructor
+ --> copy_drop.rs:2:8
+  |
+1 | #[derive(Clone, Copy)]
+  |                 ---- in this derive macro expansion
+2 | struct Bad(u32);
+  |        ^^^ `Copy` not allowed on types with destructors
 ```
 
-Sit with why this must be true. `Copy` says duplicating the bytes is harmless. `Drop` says there is
-cleanup to run when this value dies. If a type were both, then every time you assigned it you would
-silently create a second value — and both of them would eventually run the destructor. Cleanup would
-happen twice. That is the double free we spent this whole section preventing.
+The two ideas contradict each other. `Copy` says "duplicating this is harmless, there is nothing to
+clean up." `Drop` says "there is cleanup to do when this dies." If a type were both, every assignment
+would quietly create a second value, both would run the cleanup, and you would be cleaning up twice.
 
-So the two ideas genuinely contradict each other, and the compiler enforces it. Which gives you a
-useful shorthand for reading unfamiliar code:
+That gives you a useful shortcut when reading code: **if a type is `Copy`, it owns nothing that needs
+cleaning up.**
 
-> **`Copy` is a promise that there is nothing to clean up.**
+> **▶ Try it.** In `ownership_demo.rs`, find `fn copy_types()`. Remove the `//` from the three lines
+> that start with `#[derive`, `struct Bad` and `impl Drop for Bad`, and leave the two error-message
+> lines below them commented. Compile, read `E0184`, then put the `//` back.
 
-When you see a type that is `Copy`, you know immediately that it owns nothing. When you see a type
-that is not, you know it owns something, and you should be thinking about where its single owner is.
+### Clone: when you really do want two
 
----
-
-## Clone: When You Actually Do Want Two
-
-Sometimes you genuinely want a second, independent copy of something that owns a resource. That is
-what `Clone` is for.
+Sometimes you genuinely want a second, independent copy of a `String`. That is what `.clone()` is for:
 
 ```rust
-#[derive(Clone)]
-struct Tag(String);
-
-let original = Tag(String::from("original"));
-let copy = original.clone();
+let a = String::from("hello");
+let b = a.clone();
+println!("a = {}, b = {}", a, b);
 ```
 
 ```text
+a = hello, b = hello
+```
+
+Both work, because `clone` made a **real second copy**: it asked for new heap memory and copied the
+five letters into it. Now there are two separate strings, each with its own owner, and each will be
+freed once.
+
+> **▶ Try it.** Section 7 clones a struct that prints when it dies. How many drops? Run `./demo 7`.
+
+```text
+7. Clone: an explicit second value, so a second drop
       two independent Tags now exist: original / original
       drop: Tag(original)
       drop: Tag(original)
 ```
 
-Two values, so two drops. That is correct and expected — there really are two `Tag`s now, each
-owning its own `String`, each responsible for freeing it.
+Two values, two drops. Rust makes you write `.clone()` out loud because it can be expensive — it
+asks for memory and copies data — and Rust wants anything expensive to be visible when someone reads
+the code.
 
-The important design decision here is that `Clone` is **explicit**. You have to write `.clone()`. It
-is never implicit, never automatic, never hidden. And the reason is cost: cloning a `String` means
-allocating new memory and copying the bytes. Cloning a large `Vec` might mean copying megabytes.
-Rust's position is that if something might be expensive, it should be visible in the source, so that
-a reader — and a reviewer — can see it.
-
-**This matters more in the kernel than in userspace**, and here is why. Cloning usually means
-allocating. In userspace, allocation basically always succeeds, and if it does not, the process
-dies and the user restarts it. The kernel cannot take that attitude toward itself. Allocation in the
-kernel can fail, and that failure has to be handled rather than fatal.
-
-So kernel collection types do not have a quiet `.clone()` that might allocate behind your back.
-They take an explicit allocation flag and hand you back a `Result` that you must deal with. When you
-see `.clone()` in kernel Rust, the question to ask is: *what does this allocate, and what happens if
-that fails?*
+In the kernel this matters even more, because **asking for memory can fail.** So when you see
+`.clone()` in kernel code, always ask: what does this allocate, and what happens if that fails?
 
 ---
 
-## Rule Three In Full: Drop
+## Part 5 — Drop, and Why the Kernel Cares (15 minutes)
 
-We have seen `Drop` in passing. Now let us look at it properly, because it is where ownership stops
-being a restriction and starts being a feature.
+### Drop happens at a moment you can point to
 
-```rust
-impl Drop for Noisy {
-    fn drop(&mut self) {
-        println!("      drop: {}", self.0);
-    }
-}
-```
+With a garbage collector, you know memory will be freed *eventually*, but not when. In Rust, a value
+is dropped at a specific point you can find by reading the code: its owner's closing brace. Every
+time.
 
-This says: when a `Noisy` value is destroyed, run this code.
+That reliability is what makes it safe to put important work inside `drop`. Unlocking a lock,
+releasing an interrupt, returning memory — all of these can live in a `drop`, because you know
+exactly when it runs. This pattern has a name you will see often: **RAII**, which stands for
+"resource acquisition is initialization". The plain-words version: *when you get a resource, wrap it
+in a value whose `drop` gives it back.*
 
-You never call `drop` yourself. In fact you *cannot* — writing `noisy.drop()` is a compile error, and
-the compiler will tell you to use `drop(noisy)` instead. The reason for the prohibition is neat: if
-you could call the destructor as a method, you would still have the variable afterwards, and you
-could use it. The value would have been cleaned up but the name would still work — a use-after-free,
-back again. So the language forbids the method call and gives you a free function that *takes
-ownership*, which means the value is consumed and the name becomes unusable, exactly as with any
-other move.
-
-The word that matters about `Drop` is **deterministic**.
-
-In a garbage-collected language, you know your object will eventually be cleaned up, but not when.
-Maybe soon. Maybe at the next collection. Maybe not before the program exits. That uncertainty is
-why Java has `try-with-resources` and Python has `with` — because for anything that is not plain
-memory, "eventually" is not good enough.
-
-In Rust, destruction happens at a specific, predictable point that you can identify by reading the
-source. Not "eventually." At that brace, every time.
-
-That predictability is what makes it safe to put important things inside destructors. A mutex unlock
-can go in a destructor, because you know exactly when it runs. A reference count decrement can. A
-DMA unmap can. An IRQ teardown can. The whole pattern — usually called RAII, "resource acquisition
-is initialisation" — depends entirely on destruction being predictable, and Rust's is.
-
----
-
-## Drop Order In Four Situations
-
-We have seen the basic case. Here are four more, including two that surprise almost everyone.
-
-### Nested scopes
-
-An inner block is its own scope, so its values die at its own closing brace:
+You are not allowed to call `drop` yourself:
 
 ```rust
-let _outer = Noisy::new("outer");
-{
-    let _inner = Noisy::new("inner");
-    println!("      -- leaving inner block --");
-}
-println!("      -- back in outer, inner is already gone --");
+let n = Noisy("n");
+n.drop();
 ```
 
 ```text
-      make: outer
-      make: inner
-      -- leaving inner block --
-      drop: inner
-      -- back in outer, inner is already gone --
-      drop: outer
+error[E0040]: explicit use of destructor method
+11 |     n.drop();
+   |       ^^^^ explicit destructor calls not allowed
+help: consider using `drop` function
+11 +     drop(n);
 ```
 
-Nothing surprising, but worth confirming: `inner` really does die at the inner brace, not at the end
-of the function. This is how you control lifetime deliberately. If you want a lock released halfway
-through a function rather than at the end, you put it in a block.
+The reason is neat. If you could call `n.drop()`, you would still have the variable `n` afterwards,
+and you could use it — a use-after-free. So Rust gives you `drop(n)` instead, a function that **takes
+ownership** of `n`. The value moves into the function and dies there, and the name `n` becomes
+unusable, just like any other move.
 
-### Early return
-
-This one is the seed of the most important idea today, so read the output carefully.
+### Early return cleans up exactly what exists
 
 ```rust
 fn early_return(fail_after: u32) {
@@ -585,19 +650,25 @@ fn early_return(fail_after: u32) {
 }
 ```
 
-Called with 1, then 2, then 0:
+The demo calls this three times: with 1, then 2, then 0.
+
+> **▶ Try it.** For `fail_after == 1`, does `step2` get dropped? Predict all three runs, then run
+> `./demo 5`.
 
 ```text
+5. Early return with fail_after=1
       make: step1
       -- bailing out after step1 --
       drop: step1
 
+5. Early return with fail_after=2
       make: step1
       make: step2
       -- bailing out after step2 --
       drop: step2
       drop: step1
 
+5. Early return with fail_after=0
       make: step1
       make: step2
       make: step3
@@ -607,82 +678,15 @@ Called with 1, then 2, then 0:
       drop: step1
 ```
 
-Three different exit points. Three different sets of things that needed cleaning up. Every one
-correct, in reverse order, with **no cleanup code written anywhere in the function**.
+Three different exits, three different sets of cleanups, all correct and all in reverse order — and
+there is **no cleanup code in the function at all.** When we bailed out after `step1`, `step2` was not
+dropped, because it was never created. The compiler knows exactly what exists at every point.
 
-Notice particularly the first case. We bailed out after `step1`, and `step2` was never dropped —
-because `step2` was never created. The compiler knows which values exist at each point in the
-function, and cleans up exactly those.
+Keep that output in mind. It is about to matter a great deal.
 
-Hold on to this. In about two pages it is going to matter a great deal.
+### The C pattern this replaces
 
-### Shadowing does not drop early
-
-Here is the first surprise. Rust lets you reuse a variable name:
-
-```rust
-let v = Noisy::new("shadowed");
-let v = Noisy::new("shadowing");
-```
-
-You might reasonably expect the first value to be destroyed at the moment its name is taken away.
-It is not:
-
-```text
-      make: shadowed
-      the name v refers to: shadowed
-      make: shadowing
-      the name v now refers to: shadowing
-      but BOTH values are still alive — only the name was reused
-      drop: shadowing
-      drop: shadowed
-```
-
-Both values live until the end of the scope, and they drop in reverse declaration order like
-everything else.
-
-The reason is that shadowing is a fact about **names**, not about **values**. The second `let`
-creates a new variable that happens to share a name. The first variable still exists, still owns its
-value, and still has a scope that runs to the closing brace. You simply have no way to refer to it
-any more.
-
-This matters in real code more than it looks. If you write `let guard = lock.lock();` and later
-shadow `guard` with something else, the lock is still held. It is not released until the end of the
-scope. That has caused real deadlocks.
-
-### Collections drop front to back
-
-The second surprise. We have said "reverse order" many times, so:
-
-```rust
-let v = vec![Noisy::new("elem0"), Noisy::new("elem1"), Noisy::new("elem2")];
-```
-
-```text
-      drop: elem0
-      drop: elem1
-      drop: elem2
-```
-
-Forwards. Not reversed.
-
-This is not an inconsistency once you see the distinction. Reverse order is a rule about **scopes** —
-about variables declared one after another in a block, where later ones may depend on earlier ones.
-A `Vec` is not a scope. It is a single value that happens to contain other values, and its elements
-are peers with no dependency between them. So it walks them in the natural order, front to back.
-
-The `Vec` itself is one owner, dropped at its scope's end like any other value. What we are watching
-here is what that single drop does internally: destroy each element, then free the buffer.
-
----
-
-## The Payoff: Why This Deletes `goto err_unlock`
-
-Everything so far has been groundwork. This section is the reason today matters, and if you take one
-thing away from Week 1, make it this.
-
-Open almost any C function in the Linux kernel that acquires more than one resource, and you will
-find a particular shape. Here is a representative example:
+Here is how a C driver sets up three resources. Each step can fail:
 
 ```c
 static int foo_probe(struct platform_device *pdev)
@@ -694,411 +698,301 @@ static int foo_probe(struct platform_device *pdev)
 	if (!f)
 		return -ENOMEM;
 
-	f->buf = kmalloc(BUF_SIZE, GFP_KERNEL);
-	if (!f->buf) {
-		ret = -ENOMEM;
-		goto err_free_f;
-	}
-
 	ret = request_irq(f->irq, foo_isr, 0, "foo", f);
 	if (ret)
-		goto err_free_buf;
+		goto err_free;
 
-	mutex_lock(&f->lock);
 	ret = foo_hw_init(f);
 	if (ret)
-		goto err_unlock;
+		goto err_irq;
 
-	mutex_unlock(&f->lock);
 	return 0;
 
-err_unlock:
-	mutex_unlock(&f->lock);
+err_irq:
 	free_irq(f->irq, f);
-err_free_buf:
-	kfree(f->buf);
-err_free_f:
+err_free:
 	kfree(f);
 	return ret;
 }
 ```
 
-That descending ladder of labels at the bottom is one of the most recognisable things in the Linux
-kernel. You will see it thousands of times. It is not bad code — it is the *correct* C idiom for
-this problem, and a reviewer would be happy with it.
+The labels at the bottom form a ladder. Each label is a starting point for cleanup, and the labels
+fall through into each other, so jumping to `err_irq` frees the interrupt *and then* frees the memory,
+while jumping to `err_free` only frees the memory. It is a hand-written version of "clean up what
+exists, in reverse order" — exactly what the compiler did for you in the last example.
 
-Take a moment to understand how it works, because it is genuinely clever. Each label is an entry
-point into a cleanup sequence, and the labels are ordered so that jumping to any one of them
-performs exactly the cleanup needed for the resources acquired up to that point, in reverse order.
-Jump to `err_free_buf` and you free the buffer and then the struct. Jump to `err_unlock` and you
-unlock, free the IRQ, free the buffer, then free the struct. Each label falls through into the ones
-below it.
+It is correct C, and you will see this shape thousands of times in the kernel. The trouble is that a
+human has to keep the ladder in step with the code above it, by hand, forever. Someone jumps to the
+wrong label. Someone adds a fourth resource and forgets to add a rung. Someone reorders the steps and
+forgets to reorder the ladder. Someone writes a plain `return` in the middle and skips the ladder
+completely. Every one of those mistakes only shows up when something *fails*, which almost never
+happens during testing — so the bug sits there for years.
 
-It is a hand-written implementation of reverse-order cleanup with multiple entry points. Which, if
-you have been paying attention, is precisely what the compiler did for you in the early-return
-example a few pages ago.
+### The same thing in Rust
 
-### Why this pattern produces bugs
+Open `raii_probe.rs`. It is a pretend driver that acquires memory, then an interrupt, then a lock,
+where any step can fail. It uses three new pieces of Rust, so read these boxes first.
 
-The C version works. The problem is that it has to be maintained **by hand**, separately from the
-code that acquires the resources, and every change has to be made in two places that are fifteen
-lines apart.
+> **🆕 New Rust — `Result`**
+>
+> Functions that can fail return a `Result`. A `Result` is always one of two things:
+> `Ok(value)` when it worked, or `Err(error)` when it did not. The type
+> `Result<Resource, String>` means "either a `Resource`, or an error message".
 
-Four things go wrong, and all four are common enough to have caused real CVEs.
+> **🆕 New Rust — the `?` operator**
+>
+> Putting `?` after a call that returns a `Result` means: *if this is an `Err`, stop and return that
+> error from my function right now; if it is `Ok`, take the value out and carry on.* It is a
+> one-character early return.
 
-You can **jump to the wrong label**. `goto err_free_buf` when you meant `err_free_f` and you free a
-buffer that was never allocated. The labels have similar names, they are all right next to each
-other, and the compiler cannot help you because both are perfectly valid jumps.
+> **🆕 New Rust — `match` and `format!`**
+>
+> `match` looks at a value and runs the branch that fits it: `Ok(x) => ...` runs when it worked,
+> `Err(e) => ...` when it failed. You will learn `match` properly on Day 4. `format!` works like
+> `println!`, but builds a `String` instead of printing it.
 
-You can **add a resource and forget a rung**. Six months later somebody adds a fifth allocation in
-the middle of the function. They add the `goto`, they add the failure check — and they forget to add
-the matching `kfree` to the ladder. Now one specific error path leaks. Nobody notices, because that
-path only runs when something has already gone wrong.
-
-You can **reorder the acquisitions and forget to reorder the ladder**. Now cleanup happens in the
-wrong order. If the resources were independent, you get away with it. If they were not, you get a
-use-after-free that appears only on an error path.
-
-Or somebody can **write a plain `return` instead of a `goto`**. It looks completely innocent —
-`return -EINVAL;` in the middle of a function is normal-looking code. It skips the entire ladder and
-leaks everything acquired so far.
-
-What these four failures have in common is the thing that makes them dangerous: **they all live on
-error paths.** The happy path is exercised constantly, so bugs there get found immediately. Error
-paths run when the allocator is under pressure, or the hardware is misbehaving, or a probe fails.
-Those conditions are rare, hard to reproduce, and almost never tested. So the bug sits there for
-years, and then somebody works out how to trigger it deliberately, and it gets a CVE number.
-
-### The Rust version
-
-Here is the same function shaped in Rust:
+Here is the heart of the file:
 
 ```rust
-fn probe(pdev: &mut Device) -> Result<Foo> {
-    let buf = KVec::with_capacity(BUF_SIZE, GFP_KERNEL)?;
-    let irq = Irq::request(pdev.irq(), foo_isr)?;
-    let guard = self.lock.lock();
-    hw_init(&guard)?;
-    Ok(Foo { buf, irq })
+fn probe(fail_at: u32) -> Result<Device, String> {
+    let memory = Resource::acquire("memory", fail_at == 1)?;
+    let irq = Resource::acquire("irq", fail_at == 2)?;
+    let lock = Resource::acquire("lock", fail_at == 3)?;
+    Ok(Device { _lock: lock, _irq: irq, _memory: memory })
 }
 ```
 
-There is no ladder. Not a shorter ladder — no ladder at all. There is no cleanup code in this
-function whatsoever.
+`Resource` is a struct whose `drop` prints `released ...`, just like `Noisy`. `main` calls `probe`
+four times, failing at step 1, 2, 3, and then not at all.
 
-Here is how that works. The `?` at the end of each line means "if this returned an error, return
-that error from this function immediately." So each `?` is a potential early exit, exactly like the
-`return` statements in our `early_return` demo.
+> **▶ Try it.** Predict what happens when step 3 (the lock) fails: what gets released, and in which
+> order? Then compile and run:
+>
+> ```bash
+> rustc raii_probe.rs -o probe && ./probe
+> ```
 
-And at each of those exits, the compiler drops every value that currently exists, in reverse order.
-If `Irq::request` fails, `buf` exists and gets dropped, which frees the buffer. If `hw_init` fails,
-the lock guard drops first — releasing the mutex — then the IRQ handle drops, freeing the IRQ, then
-the buffer drops.
+```text
+--- probe, failing at step 1 ---
+      FAILED to acquire memory
+      probe returned error: could not get memory
 
-Every one of those cleanups is exactly what the corresponding label in the C ladder did. The
-compiler generated them, from the same information the C programmer used, but automatically and
-without the possibility of getting it wrong.
+--- probe, failing at step 2 ---
+      acquired memory
+      FAILED to acquire irq
+      released memory
+      probe returned error: could not get irq
 
-### The property that actually matters
+--- probe, failing at step 3 ---
+      acquired memory
+      acquired irq
+      FAILED to acquire lock
+      released irq
+      released memory
+      probe returned error: could not get lock
 
-It is tempting to summarise this as "Rust writes your cleanup for you," but that undersells it. Here
-is the real point:
+--- probe, failing at step 0 ---
+      acquired memory
+      acquired irq
+      acquired lock
+      probe succeeded; device in use...
+      released lock
+      released irq
+      released memory
+```
 
-**In C, the cleanup is maintained separately from the acquisition. In Rust, it is derived from it.**
+Look at the failure at step 3. The memory and the interrupt had been acquired, the lock failed, and
+`?` returned early. At that moment, rule 3 dropped everything that existed, in reverse order:
+interrupt first, then memory. That is exactly what the C ladder's `err_irq` label did — except
+nobody wrote it.
 
-That is the difference between two things that must be kept in sync by a human, and one thing.
+**There is no ladder in `probe`, and no cleanup code at all.** That is the most important idea of
+the day:
 
-The consequences are concrete. Add a resource in Rust and its cleanup arrives automatically, because
-the cleanup lives in that resource's own `Drop` implementation rather than in a ladder somewhere
-else. Reorder two acquisitions and the teardown reorders itself, because it is always the reverse of
-whatever order you happened to construct in. Add an early return anywhere, and it cleans up
-correctly, because there is no ladder to accidentally bypass.
+> In C, the cleanup is written *separately* from the setup, and a human must keep the two in step.
+> In Rust, the cleanup *follows automatically* from the setup.
 
-None of the four C bug classes has a Rust equivalent. They are not caught. They are not warned
-about. They cannot be written.
+Add a fourth resource, and its cleanup comes with it, because the cleanup lives in that resource's
+own `drop`. Reorder the steps, and the cleanup order changes to match. Add an early return anywhere,
+and it still cleans up correctly. None of the C mistakes can be written. This is the single biggest
+reason Rust is in the kernel.
 
-Now go back and look at the `early_return` output one more time — three exit points, three correct
-cleanup sequences, zero cleanup code. **That output is the `goto` ladder**, generated by the
-compiler. You have already seen the mechanism work; this section was just explaining what it
-replaces.
+**One detail in the success case.** When the probe succeeds, the three resources live inside a
+`Device` struct, and when the device is dropped they are released lock, interrupt, memory — reverse
+order again. But remember from Part 2: a struct drops its fields **top to bottom**. So how does it
+come out reversed? Look at the struct:
+
+```rust
+struct Device {
+    _lock: Resource,
+    _irq: Resource,
+    _memory: Resource,
+}
+```
+
+The fields are listed in reverse on purpose, so that top-to-bottom teardown releases the lock first
+and the memory last. Real kernel drivers think about field order for exactly this reason.
 
 ---
 
-## Kernel Rust Is Not The Rust In The Tutorials
+## Part 6 — How Kernel Rust Is Different (10 minutes)
 
-Before we finish, three differences between the Rust you are learning and the Rust in most online
-material. These are not small, and being clear about them now will save confusion for months.
+Most Rust you will find online is written for normal programs. Kernel Rust has three important
+differences.
 
 ### There is no standard library
 
-Rust's `std` gives you files, threads, sockets, `println!`, `HashMap`, and everything else you
-associate with the language. Kernel Rust has none of it.
+Normal Rust comes with a standard library, called `std`, full of useful things: files, threads,
+networking, `println!`. Everything in `std` eventually asks the operating system for help. But the
+kernel **is** the operating system. There is nobody underneath to ask.
 
-The reason is simple once stated: `std` is a library for programs that run *on top of* an operating
-system. Every part of it eventually asks the OS for something — memory, a file descriptor, a thread.
-The kernel is the operating system. There is nobody underneath to ask.
+So kernel Rust gets only the parts that need no operating system: `core` (numbers, `Result`, and other
+basics) and `alloc` (things like lists that use heap memory). This is called `no_std`. It is also
+why, in Week 0, you installed `rust-src`: the kernel build compiles `core` from source itself.
 
-What you get instead is `core`, which is the part of the standard library that needs no OS
-underneath — integers, slices, `Option`, `Result`, iterators — plus `alloc`, which provides
-heap-using types like `Vec` and `Box` on top of an allocator the kernel supplies itself.
+The difference you will notice first: there is no `println!`. In the kernel you write `pr_info!`, and
+the message goes to the kernel log, which you read with `dmesg`.
 
-This is what `no_std` means, and it is why Week 0 Day 4 had you install `rust-src`: since there is
-no prebuilt `core` for "the Linux kernel with these exact compiler flags," the kernel build compiles
-`core` from source every time.
+### A panic stops the whole machine
 
-In practice the difference you will feel most often is that `println!` does not exist. You write
-`pr_info!` instead, which goes to the kernel log where `dmesg` can find it.
+> **🆕 New Rust — panics and `unwrap()`**
+>
+> A **panic** is Rust's way of saying "something impossible happened, stop right now". One common way
+> to cause one is `.unwrap()`, which means "give me the value inside this `Result`, and if it is an
+> error, panic."
 
-### There is no unwinding, so `unwrap()` is a bug
+In a normal program, a panic stops that program. The operating system cleans up, and you run it
+again. In the kernel, there is nothing above you to clean up. **A panic in kernel code is a kernel
+panic: the whole machine stops**, and every program running on it is lost.
 
-When a Rust program panics in userspace, it normally *unwinds*: it walks back up the call stack
-running destructors, then terminates the thread. Your `Drop` implementations still run. It is an
-orderly shutdown of a failed operation.
+So, a rule to remember from today, even though you will not write kernel code for a few weeks:
+**`unwrap()` is a bug in kernel code.** Not bad style — a bug, because its failure stops the machine.
+Handle the error instead, usually with `?`.
 
-Kernel Rust is compiled with `panic = abort`. There is no unwinding, and destructors do not run.
+### Asking for memory can fail
 
-More importantly, think about what a panic means here. In userspace, a panic kills your process. The
-kernel reclaims its memory, the user sees a crash, they run it again. In the kernel, there is no
-higher authority to clean up after you — you *are* the higher authority. A panic in kernel code is a
-**kernel panic**. Depending on configuration the machine halts or reboots. Every running program
-dies. Unsaved work is gone.
+> **🆕 New Rust — `Box` and `KBox`**
+>
+> A `Box` holds one value on the heap; when the `Box` is dropped, the heap memory is given back.
+> `KBox` is the kernel's version.
 
-Which leads to the rule you need to absorb today, even though you will not feel its weight until
-Month 2:
-
-> **`unwrap()` and `expect()` are bugs in kernel code.**
-
-Not poor style. Not something to clean up later. The failure mode is taking down the machine.
-
-You will feel the pull to write them constantly, because they make the compiler stop complaining and
-you are fairly sure the value is there. Resist it. If you are certain a case cannot happen, prove it
-to the type system or handle it explicitly. Every `unwrap()` is a bet that you are smarter than
-every future maintainer, every unusual hardware state, and every attacker.
-
-### Allocation can fail, and you must handle it
-
-This is the biggest practical difference.
-
-In userspace, `Box::new(x)` cannot fail. If the system is out of memory, the allocator aborts the
-process. The API does not even offer you a way to find out, because there is nothing sensible you
-could do.
-
-The kernel cannot behave that way toward itself. Running out of memory is a normal condition that
-the kernel has to survive and handle gracefully — that is one of its main jobs. So kernel allocation
-returns a `Result`:
+In a normal program, asking for memory never fails — if the computer runs out, the program is
+simply stopped. The kernel cannot treat itself that way; running low on memory is a normal situation
+it must survive. So in the kernel, asking for memory returns a `Result`:
 
 ```rust
 let b = KBox::new(value, GFP_KERNEL)?;
-let mut v = KVec::with_capacity(n, GFP_KERNEL)?;
-v.push(item, GFP_KERNEL)?;
 ```
 
-Two things are new there. The types are `KBox` and `KVec` rather than `Box` and `Vec`, because they
-are the kernel's fallible versions. And every allocating call takes a flag like `GFP_KERNEL`, which
-is the same allocation-context flag you would pass to `kmalloc` in C — it tells the allocator what
-this call is allowed to do, such as whether it may sleep waiting for memory to be freed.
+`GFP_KERNEL` is the same flag C code passes to `kmalloc`. It tells the memory allocator what it is
+allowed to do, such as wait for memory to become free. And the `?` means that if there is no memory,
+the error is passed up like any other error — and everything already acquired is cleaned up
+automatically, exactly as in `raii_probe.rs`.
 
-The `?` on each line is doing the same job as before: if allocation failed, return the error. Which
-means allocation failure flows through your code as an ordinary error, using the same mechanism as
-every other failure, and the same automatic cleanup applies.
+### When `drop` does not run
 
-The ownership rules are identical. Only the construction is fallible.
+`drop` is reliable, but there are four situations where it does not run, and it is worth knowing all
+four.
 
----
+**You told Rust not to.** The function `mem::forget` takes a value and throws it away without running
+its `drop`.
 
-## When `Drop` Does Not Run
+> **🆕 New Rust — `use std::mem;`**
+>
+> `use` makes a name from a library available in your file. `std::mem` is a part of the standard
+> library with tools for working with memory, and after `use std::mem;` you can write `mem::forget`.
 
-One last thing, and it is the kind of detail that saves you a confusing afternoon.
-
-`Drop` is reliable, but it is not magic. There are four situations where a destructor does not run,
-and you should know all four so you never trust a cleanup that was never going to happen.
-
-**You suppressed it deliberately.** `mem::forget(x)` consumes a value without running its
-destructor, and `ManuallyDrop` does the same thing as a wrapper type:
+> **▶ Try it.** Run `./demo 9`.
 
 ```text
+9. mem::forget suppresses Drop entirely
       make: kept
       make: leaked
       forgot 'leaked'; only 'kept' will drop
       drop: kept
 ```
 
-Notice this is *safe* Rust — no `unsafe` block required. That surprises people, but it is
-consistent: leaking memory cannot corrupt anything or violate memory safety. It is merely wasteful.
-Rust's safety guarantee is about correctness, not about tidiness.
+This is allowed in normal Rust because leaking memory is wasteful but cannot corrupt anything.
 
-**It panicked.** With `panic = abort`, nothing unwinds, so no destructors run anywhere.
+**The code panicked.** A kernel panic stops everything, so no `drop` runs.
 
 **The program or machine stopped.** Nothing runs after that.
 
-**The value never went out of scope.** And here is one you have already met without knowing it.
-
-In Week 0 Day 4, you built the sample modules as `=m` rather than `=y`, and the reason given was
-that a built-in module cannot be `insmod`'d — which is true. But there is a second reason, and it is
-a `Drop` reason.
-
-A module compiled into the kernel is never unloaded. It is part of the kernel image; it is there
-from boot until shutdown. So the value representing that module never goes out of scope, and its
-`Drop` never runs. The exact same source file, built two different ways, has a teardown path that
-executes in one case and simply does not exist in the other.
-
-That is Saturday's lab, and it is a much better demonstration of what "goes out of scope" really
-means than any userspace example could be.
+**The value never went out of scope.** You have already seen this one without knowing it. In Week 0,
+you built the sample modules as `=m` (loadable) instead of `=y` (built into the kernel). A built-in
+module is never unloaded, so the value representing it never goes out of scope, and its `drop` never
+runs. Same source code, and in one build the cleanup code simply never executes. That is Saturday's
+lab.
 
 ---
 
-## Doing The Work
+## Your Turn (10 minutes)
 
-Reading about drop order is not the same as being able to predict it. This part is where the
-learning actually happens, so do not skip it.
+Now write one yourself, from scratch, without copying from the demo. Typing it yourself is what makes
+it stick.
 
-### Set up a scratch area
+Create a file called `my_drop_order.rs`. In it, write a struct called `Guard` that holds a name and
+prints `release <name>` when it is dropped. Then write a function `setup` that takes a `bool`: it
+creates a guard named `a`, returns early if the `bool` is true, and otherwise creates a guard named
+`b`. In `main`, create a guard named `outer`, then an inner block containing a guard named `inner`,
+then call `setup(true)`, then `setup(false)`, then print `end of main`.
 
-```bash
-bash ~/LKD_RUST/codes/sync_from_repo.sh
-
-mkdir -p ~/rust-scratch && cd ~/rust-scratch
-cp ~/LKD_RUST/codes/Month_1/Week_1/Day_1/ownership_demo.rs .
-rustc --version
-```
-
-If you get `rustc: command not found`, it is installed at `~/.cargo/bin` but your shell has not
-picked it up — a distro `~/.bashrc` stops early for non-interactive shells. Fix it with:
+**Before you run it**, write your predicted output as a comment at the top of the file. Then:
 
 ```bash
-export PATH="$HOME/.cargo/bin:$PATH"
+rustc my_drop_order.rs -o my_drop_order && ./my_drop_order
 ```
 
-There is no kernel tree and no build involved today, which is deliberate. Plain `rustc` on a single
-file compiles in about a second, and you are going to compile many times.
-
-### Predict before you run
-
-This is the single most important instruction in the file.
-
-Open `ownership_demo.rs` and read it. It has ten sections, matching the ten things we discussed.
-For each one, **write down the output you expect** — the actual order, on paper or in your journal.
-Not in your head; writing it down is what forces you to commit.
-
-Then run it:
-
-```bash
-rustc ownership_demo.rs -o demo && ./demo
-```
-
-Compare. **The section you got wrong is the only one you learned anything from today**, so make a
-note of which it was. For most people it is section 8 (shadowing) or section 10 (`Vec` order),
-because both contradict a reasonable guess.
-
-### Break it on purpose
-
-Reading a compiler error you caused deliberately, while you know exactly what you did, teaches you
-far more than reading documentation about that error.
-
-In the `moves()` function, uncomment the `println!` that uses `a` after the move, and compile. Read
-the whole error, not just the first line — find where it says the value was created, where it moved,
-and where you used it.
-
-In `copy_types()`, uncomment the `Bad` struct that tries to be both `Copy` and `Drop`, and read
-`E0184`.
-
-Then write three more of your own, predicting the error each time before you compile:
+<details>
+<summary>One possible solution, and its output</summary>
 
 ```rust
-// 1. move into a function, then use the original
-let n = Noisy::new("n");
-consume(n);
-println!("{}", n.0);
+struct Guard(&'static str);
 
-// 2. move in a loop — why does the SECOND iteration fail?
-let n = Noisy::new("n");
-for _ in 0..2 {
-    consume(n);
-}
-
-// 3. call drop() as a method
-let n = Noisy::new("n");
-n.drop();
-```
-
-The second is the more interesting one. Think about what the loop is asking for: the value is moved
-into `consume` on the first pass, so on the second pass there is nothing left to move. The compiler
-sees this even though the loop count is a constant it could theoretically evaluate.
-
-The third one you already know the answer to from earlier — but read what the compiler *suggests*
-instead, and make sure you can explain why the language provides that spelling rather than the
-obvious one.
-
-### Write your own puzzle
-
-Predicting someone else's code is easier than predicting your own, so write one.
-
-Combine a nested scope, a move, and an early return in a single function, and write your prediction
-as a comment above it before running:
-
-```rust
-fn my_puzzle(fail: bool) {
-    let a = Noisy::new("a");
-    {
-        let b = Noisy::new("b");
-        if fail {
-            return;          // what drops here, and in what order?
-        }
-        let c = Noisy::new("c");
-        let _ = (&b, &c);
+impl Drop for Guard {
+    fn drop(&mut self) {
+        println!("release {}", self.0);
     }
-    let d = Noisy::new("d");
-    let _ = (&a, &d);
+}
+
+fn setup(fail: bool) {
+    let _a = Guard("a");
+    if fail {
+        return;
+    }
+    let _b = Guard("b");
+}
+
+fn main() {
+    let _outer = Guard("outer");
+    {
+        let _inner = Guard("inner");
+    }
+    setup(true);
+    setup(false);
+    println!("end of main");
 }
 ```
 
-Call it both ways. If your comment matched the output both times, you understand drop order well
-enough to move on.
-
-### Go and find the thing Rust deletes
-
-Reading my example of a `goto` ladder is not the same as finding one yourself in a real driver.
-
-```bash
-cd "$LINUX_TREE"
-git grep -n "err_unlock:" -- drivers/ | head -20
+```text
+release inner
+release a
+release b
+release a
+end of main
+release outer
 ```
 
-Pick one and read the entire function. Then answer, in your journal:
+`inner` dies at the end of its block. `setup(true)` makes `a` and returns early, so only `a` is
+released. `setup(false)` makes `a` then `b`, and releases them in reverse. `outer` lives until the
+very end of `main`, after the last print.
 
-How many labels does the error path have? How many distinct failure points jump into it? If you were
-asked to add one more resource in the middle of the function, how many separate places would you
-have to edit, and what would happen if you got one of them wrong? And what would happen if somebody
-added a plain `return` in the middle?
+</details>
 
-That last question is the whole argument for today, asked about real code that real people maintain.
-
-### Look at the kernel types
-
-You are not writing a module today, but read the real thing so the names become familiar:
+Save your work into the repository:
 
 ```bash
-sed -n '1,60p' samples/rust/rust_minimal.rs
-```
-
-Find the struct that represents the module, the `impl kernel::Module` block with its `init()`
-returning a `Result`, the `impl Drop` that is the unload path, and the `KVec` allocation with its
-`GFP_KERNEL` flag. You have now met every one of those ideas.
-
-Then look at how the kernel spells `Box`:
-
-```bash
-grep -rn "pub fn new" rust/kernel/alloc/kbox.rs | head -5
-```
-
-Notice the signature takes an allocation flag and returns a `Result`. That is fallible allocation,
-in the actual source.
-
-### Save your work
-
-```bash
-cd ~/rust-scratch
-cp ownership_demo.rs ~/LKD_RUST/codes/Month_1/Week_1/Day_1/my_ownership_demo.rs
+cp my_drop_order.rs ~/LKD_RUST/codes/Month_1/Week_1/Day_1/
 bash ~/LKD_RUST/codes/sync_to_repo.sh
 bash ~/LKD_RUST/codes/Month_1/Week_1/Day_1/check_day1.sh
 ```
@@ -1107,8 +1001,7 @@ bash ~/LKD_RUST/codes/Month_1/Week_1/Day_1/check_day1.sh
 
 ## Checking Yourself
 
-The script above verifies the demo behaves as described. But the real test is not a script, so here
-is one question. Without running anything, what does this print?
+Without running anything, what does this print?
 
 ```rust
 fn f() {
@@ -1120,8 +1013,6 @@ fn f() {
     let d = Noisy::new("d");
 }
 ```
-
-Work it out fully before opening the answer.
 
 <details>
 <summary>Answer</summary>
@@ -1135,16 +1026,14 @@ drop: d
 drop: a
 ```
 
-The line `let c = b;` moves. It does not create a second value, and it does not drop anything — so
-there is no drop between `make: b` and the end of the inner block. The value now belongs to `c`, and
-`c`'s scope is the inner block, so the value dies at that closing brace. That is the `drop: b` you
-see — the name in the message is just the text the value was created with, which never changed.
+`let c = b;` is a move. It does not create a second value and does not drop anything. The value now
+belongs to `c`, and `c`'s scope is the inner block, so the value dies at that inner `}`. The message
+says `b` because that is the text it was created with. Then `d` is made, and at the end of the
+function `d` and `a` are dropped in reverse order.
 
-Then `d` is created, and at the end of the function `d` and `a` drop in reverse declaration order.
-
-If you predicted a drop when `b` was moved to `c`, re-read the section on what a move does at
-runtime. If you thought the value would survive past the inner block, re-read rule three: it is the
-*owner's* scope that matters, and the owner is `c`.
+If you expected a drop at the move, re-read *What a move actually costs* in Part 3. If you expected
+the value to live past the inner block, remember that it is the **owner's** scope that counts, and the
+owner is `c`.
 
 </details>
 
@@ -1152,39 +1041,29 @@ runtime. If you thought the value would survive past the inner block, re-read ru
 
 ## Common Confusions
 
-A few things that catch nearly everyone, gathered in one place.
+**"A move copies the data."** It does not. It copies the few numbers on the stack, never the heap
+data, and often the compiler removes even that.
 
-**Thinking a move copies something, or costs something.** It is a compile-time bookkeeping change.
-For most types it is a few bytes at most, and often zero instructions after optimisation.
+**"A move drops the old value."** It does not. There is one value, dropped once, when the *new*
+owner's scope ends. If you ever see two drops, you had two values — usually from a `.clone()`.
 
-**Thinking a move drops the original.** It does not. There is one value, and it is dropped once, at
-the point the new owner's scope ends. If you see two drops, you had two values — probably from a
-`clone()`.
+**"Shadowing frees the old value."** It does not. Both values live until the end of the scope.
 
-**Expecting shadowing to free the old value.** It does not. Both values live to the end of the scope.
-This is a real source of deadlocks when the shadowed value was a lock guard.
+**"Everything drops in reverse."** Variables in a scope do. Items in a `Vec` and fields in a struct
+drop front to back.
 
-**Expecting `Vec` to drop in reverse.** It drops front to back. Reverse order is a rule about scopes,
-not about collections.
+**"I can call `.drop()` to clean up early."** You cannot. Use `drop(value)`, or put the value in a
+smaller block.
 
-**Trying to call `.drop()` as a method.** Use the free function `drop(x)`. The method form is
-forbidden precisely because it would leave you holding a usable name for a destroyed value.
+**"`drop` always runs."** Not after `mem::forget`, a kernel panic, the machine stopping, or for a value
+that never leaves scope — such as a built-in module.
 
-**Assuming a destructor always runs.** `mem::forget`, a panic under `abort`, and never leaving scope
-all skip it. A module built into the kernel is the third case, which is Saturday's lab.
+**"When the compiler complains, add `.clone()`."** It often works, and it hides the real question. In
+kernel code it may also ask for memory, which can fail. Tomorrow you will learn the usual right
+answer: borrowing.
 
-**Reaching for `.clone()` to make the compiler stop complaining.** It will work, and it will hide
-whatever design question you were actually facing. In the kernel it may also allocate, which means
-it may fail. When you feel the urge to clone, first ask whether you needed a reference instead —
-which is tomorrow's subject.
-
-**Writing `unwrap()`.** In kernel code that is a panic, and a kernel panic stops the machine.
-
-**Expecting `Box::new` to work.** In the kernel it is `KBox::new(value, GFP_KERNEL)?`.
-
-**Trying to learn this by rebuilding the kernel each time.** The rules are identical in userspace and
-the loop is hundreds of times faster. Use `rustc` on one file until you can predict the output, then
-take that understanding to the kernel.
+**"`unwrap()` is fine if I am sure."** In kernel code it is a bug, because if you are wrong, the
+machine stops.
 
 ---
 
@@ -1192,36 +1071,26 @@ take that understanding to the kernel.
 
 ### The prediction I got wrong
 
-| Section | What I predicted | What happened | Why I was wrong |
+| Demo section | What I predicted | What happened | Why I was wrong |
 |---|---|---|---|
 | | | | |
 
-### The compile errors I wrote deliberately
+### The errors I caused on purpose
 
-| What I wrote | Error code | What the message taught me |
+| What I did | Error code | What the message taught me |
 |---|---|---|
-| use after move | `E0382` | |
-| `Copy` plus `Drop` | `E0184` | |
-| | | |
-
-### My own drop-order puzzle, and whether I predicted it correctly
-
-```rust
-
-```
-
-### The C error ladder I read
-
-Which file and function, how many labels, how many failure paths reach it, and how many places you
-would have to edit to add one more resource:
+| used a String after moving it | `E0382` | |
+| moved a String inside a loop | `E0382` | |
+| made a type both `Copy` and `Drop` | `E0184` | |
+| called `.drop()` myself | `E0040` | |
 
 ### In my own words
 
-Why can a type never be both `Copy` and `Drop`?
+Why does Rust move a `String` but copy an `i32`?
 
-Why is destruction in *reverse* declaration order rather than forward?
+Why are variables dropped in reverse order?
 
-How does `?` plus `Drop` replace the `goto` ladder?
+How does `?` together with `drop` replace the C `goto` ladder?
 
 ### What I still do not understand
 
@@ -1229,95 +1098,148 @@ How does `?` plus `Drop` replace the `goto` ladder?
 
 ## Done When
 
-You are finished with today when you can do the following without looking anything up.
+You can say the three ownership rules from memory, and explain why the kernel cannot use a garbage
+collector.
 
-State the three ownership rules from memory, and explain why the kernel cannot use garbage
-collection — not just "it would be slow," but the actual structural reason.
+You can draw the stack-and-heap picture of a `String`, and use it to explain why `let b = a;` moves
+instead of copying, and what bug that prevents.
 
-Predict drop order for nested scopes, moves, and early returns, and explain why the order is
-reversed. Know that shadowing does not drop early and that `Vec` drops front to back, and be able to
-say why those two are not contradictions.
+You can predict drop order for a scope, a nested block, a move, a function call, and an early return —
+and you know the two exceptions: shadowing does not drop early, and a `Vec` drops front to back.
 
-Explain why a type can never be both `Copy` and `Drop`, and what that tells you about any type you
-see marked `Copy`.
+You can explain why a type can never be both `Copy` and `Drop`.
 
-Describe how `?` combined with `Drop` removes the `goto err_unlock` ladder, having read a real one in
-`drivers/` — and name at least two of the four ways that ladder goes wrong in practice.
+You ran `raii_probe.rs`, predicted the step-3 failure correctly, and can explain how `?` plus `drop`
+removes the C `goto` ladder.
 
-Name the three things kernel Rust does not have, and explain why `unwrap()` is a bug rather than a
-style preference.
+You can name the three ways kernel Rust differs — no `std`, panics stop the machine, memory requests
+can fail — and explain why `unwrap()` is a bug in kernel code.
 
-Name four situations where `Drop` does not run, including the one that explains why you built the
-Week 0 samples as `=m`.
-
-And practically: you have run the demo having predicted every section, written at least five
-deliberate compile errors and read each message in full, written your own puzzle and predicted it
-correctly, and filled in your notes above — especially the prediction you got wrong.
+You wrote `my_drop_order.rs` yourself and your prediction matched the output.
 
 ---
 
 ## Further Reading
 
-**The Rust Book, Chapter 4** is the canonical treatment of ownership. Read it *after* today's
-experiments rather than before, so that you are confirming a model you built by observation rather
-than trying to build one from prose.
+**The Rust Book, Chapter 4 ("Understanding Ownership")** covers today's ideas from another angle, with
+the same stack-and-heap pictures. Read it *after* today, to confirm what you have seen for yourself.
 
-**`Documentation/rust/coding-guidelines.rst`** in the kernel tree is short, and it is the standard
-your code will be judged against.
+**`samples/rust/rust_minimal.rs`** in your kernel tree is about 30 lines. Its `impl Drop` is the code
+that runs when the module is unloaded.
 
-**`rust/kernel/alloc/kbox.rs`** — read `KBox::new`. Fallible allocation, in the source, rather than
-described.
-
-**`samples/rust/rust_minimal.rs`** — the `Drop` implementation there is a module's unload path.
-
-**[rust.docs.kernel.org](https://rust.docs.kernel.org/kernel/)** — look up `KBox`, `KVec` and
-`Result`. You are learning where things live, not what they do.
-
-**`Documentation/process/submitting-patches.rst`** — read it this week even though you will not
-submit anything for a while. It sets the standard everything else is measured against.
+**[rust.docs.kernel.org](https://rust.docs.kernel.org/kernel/)** is the kernel's Rust documentation.
+Look up `KBox` and `KVec` — you are only learning where things live, not what they do yet.
 
 ---
 
-## Summary
+## If You Have More Time (optional)
 
-The question every language must answer is when it is safe to free memory. C makes you answer it by
-hand on every path, and the kernel's CVE list is largely the record of people getting that wrong.
-Garbage collection answers it with a runtime that the kernel cannot host and cannot afford to be
-paused by. Rust answers it at compile time, generating the same cleanup a careful C programmer would
-have written, at points it can prove are correct — which is why it runs with no overhead and why it
-was allowed into the kernel.
+These are outside the 90 minutes, and each is worth doing when you can.
 
-The mechanism is three rules. Every value has one owner. Assignment moves ownership rather than
-duplicating it, which is why using a moved-from variable fails to compile and why double frees
-cannot happen. When the owner's scope ends, the value is dropped, deterministically, at a point you
-can identify by reading the code.
+**Find a real `goto` ladder.** In your kernel tree, run `git grep -n "err_unlock:" -- drivers/ | head`,
+open one of the files, and read the whole function. Count the labels, and ask yourself how many
+places you would have to change to add one more resource.
 
-Values in a scope drop in reverse declaration order, because later values may have been built from
-earlier ones and must be torn down first. Shadowing does not drop early — it renames, and both values
-survive to the end of the scope. Collections drop their elements front to back, because a collection
-is not a scope.
+**Look at `KBox::new` in the real source.** Run
+`grep -n "pub fn new" ~/LKD_RUST/kernel/linux/rust/kernel/alloc/kbox.rs` and notice that it takes an
+allocation flag and returns a `Result`.
 
-Small plain types like integers are `Copy` and duplicate instead of moving, because there is nothing
-to clean up. That is what `Copy` means, and it is why a type can never be both `Copy` and `Drop`:
-one says there is nothing to clean up and the other says there is.
+**Make your own puzzle harder.** Combine a nested block, a move, and an early return in one function.
+Write your prediction first, then run it with both a true and a false argument.
 
-The payoff is that `?` plus `Drop` deletes the `goto err_unlock` ladder. In C, cleanup is maintained
-by hand in a separate place from acquisition, and the four ways that goes wrong all hide on error
-paths nobody tests. In Rust, cleanup is *derived from* acquisition, so adding a resource brings its
-cleanup with it and reordering acquisitions reorders teardown automatically. That is the single
-biggest reason Rust is in the kernel.
+---
 
-Finally, kernel Rust is a smaller language than the tutorials teach. No `std`, so `pr_info!` instead
-of `println!`. No unwinding, so a panic stops the machine and `unwrap()` is a bug. No infallible
-allocation, so `KBox::new(v, GFP_KERNEL)?` and allocation failure is an ordinary error you handle.
+## 📖 Revision — Read This First When You Come Back
 
-If you remember only four things: one owner, moved on assignment, dropped at scope end. Reverse
-declaration order. Cleanup derived from construction rather than maintained beside it. And no
-`unwrap()`, ever.
+### The day as a story
+
+Every language must decide when memory is given back. Too early is a use-after-free, twice is a
+double free, never is a leak. C makes you decide by hand on every path, and most serious kernel
+security bugs are the result. A garbage collector cannot work in a kernel, because nothing runs below
+the kernel and some kernel code may never pause. Rust's answer is ownership: the compiler works out
+where each value's life ends and writes the cleanup there.
+
+There are three rules. Every value has one owner. Assigning or passing a value moves ownership.
+When the owner goes out of scope, the value is dropped. Variables in a scope are dropped in reverse
+order, because later things may depend on earlier ones. Shadowing does not drop early, and a `Vec`
+or a struct drops its contents front to back.
+
+A `String` keeps a pointer, a length and a capacity on the stack and its text on the heap. If
+`let b = a;` gave two owners, the text would be freed twice, so Rust makes `a` unusable instead. A
+move costs almost nothing. Types that live entirely on the stack, like `i32`, are `Copy` and are
+duplicated instead of moved; a type can never be both `Copy` and `Drop`. `.clone()` makes a real,
+explicit second copy, which may ask for memory.
+
+`drop` runs at a predictable moment, so it can safely release locks, interrupts and memory. Combined
+with `?`, it replaces the C `goto` ladder: cleanup follows automatically from setup instead of being
+maintained separately by hand. Kernel Rust has no `std`, a panic stops the machine (so `unwrap()` is a
+bug), and asking for memory returns a `Result`.
+
+### If you remember only five things
+
+1. **One owner. Moved on assignment. Dropped at the end of its scope.**
+2. **Reverse order for variables in a scope**; front to back inside a `Vec` or a struct.
+3. **`Copy` means nothing to clean up**, which is why it can never be combined with `Drop`.
+4. **`?` plus `drop` replaces `goto err_unlock`** — cleanup follows from setup.
+5. **No `unwrap()` in kernel code**, because a kernel panic stops the machine.
+
+### Quick recall
+
+Answer each one out loud before opening the answers.
+
+1. Name the three ways giving memory back can go wrong.
+2. Why can the kernel not use a garbage collector?
+3. What are the three ownership rules?
+4. What does a `String` keep on the stack, and what on the heap?
+5. Why does `let b = a;` make `a` unusable for a `String` but not for an `i32`?
+6. In what order are three variables in one scope dropped, and why?
+7. Does shadowing a variable drop the old value?
+8. Why can a type never be both `Copy` and `Drop`?
+9. When `probe` fails at step 3, what is released, and in what order?
+10. Name the four situations where `drop` does not run.
+
+<details>
+<summary>Answers</summary>
+
+1. Too early (use-after-free), twice (double free), never (leak).
+2. Nothing runs underneath the kernel to host one, and some kernel code is not allowed to pause.
+3. One owner per value; assigning or passing moves ownership; the value is dropped when the owner
+   goes out of scope.
+4. Stack: a pointer, a length and a capacity. Heap: the text itself.
+5. Two owners of the same heap text would free it twice. An `i32` has nothing on the heap, so
+   copying it is complete and safe — it is `Copy`.
+6. Reverse order of creation, because later values may depend on earlier ones.
+7. No. Both values live until the end of the scope; only the name was reused.
+8. `Copy` says there is nothing to clean up; `Drop` says there is. Both together would mean cleaning
+   up twice.
+9. The interrupt, then the memory — what existed, in reverse order. The lock was never acquired.
+10. After `mem::forget`; after a panic; when the machine stops; when the value never leaves scope,
+    such as a module built into the kernel.
+
+</details>
+
+### The code, in order
+
+```bash
+cd ~/rust-scratch
+rustc ownership_demo.rs -o demo
+./demo 1          # end of scope, reverse order
+./demo 2          # nested block
+./demo 3          # move: one make, one drop
+./demo 4          # move into a function
+./demo 5          # early return
+./demo 7          # clone: two drops
+./demo 8          # shadowing
+./demo 9          # mem::forget
+./demo 10         # Vec order
+
+rustc raii_probe.rs -o probe && ./probe     # the goto ladder, deleted
+
+rustc my_drop_order.rs -o my_drop_order && ./my_drop_order
+```
 
 ---
 
 **Next:** [M1W1D2 — Borrowing and the Borrow Checker](Day_2.md). Today answered "who is responsible
-for freeing this." Tomorrow answers "who is allowed to look at it, and when" — and it is where you
-learn to read what `rustc` is actually telling you, which decides whether Rust feels like a
-collaborator or an obstacle for the rest of your career.
+for cleaning this up?" Tomorrow answers "who is allowed to *look at* it, and when?" — which is how a
+function can use a value without taking it away from you.

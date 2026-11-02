@@ -55,6 +55,12 @@ fi
 
 [ -n "$GIT_NAME" ]  || die "a name is required"
 [ -n "$GIT_EMAIL" ] || die "an email is required"
+case "$GIT_NAME" in
+  "Your Full Name"|"Your Name"|"Full Name") die "'$GIT_NAME' is a placeholder — enter your real name" ;;
+esac
+case "$GIT_EMAIL" in
+  *@example.com|*@example.org|*@example.net) die "'$GIT_EMAIL' is a placeholder — enter a real inbox" ;;
+esac
 # A DCO sign-off needs a real name, which in practice means at least two words.
 case "$GIT_NAME" in
   *[!\ ]\ *[!\ ]*) : ;;
@@ -135,6 +141,16 @@ if [ -n "${SMTP_HOST:-}" ]; then
   # Deliberately NOT set: sendemail.smtpPass. See the header.
   git config --global --unset sendemail.smtpPass 2>/dev/null || true
   warn "no password stored — git will prompt you on each send. That is intentional."
+
+  # Never replace a helper the user already chose; fill the gap, or flag `store`.
+  case "$(git config --global credential.helper)" in
+    "")
+      git config --global credential.helper 'cache --timeout=3600'
+      ok "credential.helper: cache — the App Password stays in memory for an hour" ;;
+    store*)
+      warn "credential.helper is 'store': the SMTP password would be saved in plaintext"
+      info "switch: git config --global credential.helper 'cache --timeout=3600'" ;;
+  esac
 
   if [ "$SMTP_PRESET" = gmail ]; then
     printf '\n  %sGmail requires an App Password%s — your normal password is rejected.\n' "$C_B" "$C_N"
