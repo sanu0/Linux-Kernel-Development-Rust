@@ -121,6 +121,19 @@ else
   fail "section 9 output unexpected"
 fi
 
+# Once the guard is gone, its exclusive borrow is over and the owner can read again.
+grep -q 'after the block, counter.value is 42' "$TMP/out" \
+  && ok "after the guard drops, the counter is usable directly again" \
+  || fail "section 9: counter not readable after the guard was dropped"
+
+# `./borrow 3` must run section 3 alone, so predictions are not spoiled.
+if "$TMP/demo" 3 > "$TMP/one" 2>&1 && grep -q '3\. Exclusive' "$TMP/one" \
+   && ! grep -q '1\. Why borrowing' "$TMP/one"; then
+  ok "running one section (./borrow 3) shows only that section"
+else
+  fail "running ./borrow 3 did not show section 3 on its own"
+fi
+
 # ─────────────────────────────────────────────────────────────────
 section "borrow_errors.rs — must compile with everything commented"
 
@@ -195,9 +208,17 @@ check_err e5 E0505 "moving a value that is still borrowed"
 # ─────────────────────────────────────────────────────────────────
 section "Your own work"
 
-[ -f "$DAY_DIR/my_borrow_errors.rs" ] \
-  && ok "my_borrow_errors.rs saved" \
-  || warn "no my_borrow_errors.rs yet — save your annotated copy"
+MINE=$(ls "$DAY_DIR"/my_*.rs 2>/dev/null | head -1)
+if [ -n "$MINE" ]; then
+  ok "found $(basename "$MINE")"
+  if rustc "$MINE" -o "$TMP/mine" 2>/dev/null; then
+    ok "$(basename "$MINE") compiles (both errors fixed)"
+  else
+    warn "$(basename "$MINE") does not compile yet — fix both errors before saving"
+  fi
+else
+  warn "no my_borrow_errors.rs yet — the 'Your Turn' part asks you to write and save one"
+fi
 
 # ─────────────────────────────────────────────────────────────────
 section "What no script can check"
@@ -205,17 +226,17 @@ section "What no script can check"
 cat <<'EOF'
   Answer these out loud. If any is shaky, re-read that section before Day 3.
 
-    1. State the aliasing rule. Why is each of its three cases safe or unsafe?
-    2. In the Vec push example, what happens to the heap buffer, and why does
-       that make the reference dangle?
-    3. Why is that code rejected even when the Vec HAS spare capacity?
-    4. What are non-lexical lifetimes? Which two lines can you swap to make the
-       same code compile?
+    1. State the one rule about borrows. Why is each of its three situations
+       safe or unsafe?
+    2. In the Vec push example, what happens to the list's memory, and why
+       does that make the reference point at freed memory?
+    3. Why is that code rejected even when the list HAS spare room?
+    4. When does a borrow end? Which two lines can you swap in section 4 to
+       make the same code fail?
     5. Why can a pointer and a length never disagree in a slice?
     6. Why does kernel code prefer v.get(i) over v[i]?
-    7. Why is `fn dangle() -> &String` rejected at the SIGNATURE, not the body?
-    8. How do Drop (Day 1) and exclusive borrowing (Day 2) combine to make a
-       lock guard safe? Name both guarantees separately.
+    7. Why is `fn make() -> &String` rejected at its signature, not its body?
+    8. Name the two guarantees a lock guard gives, and which day each comes from.
 EOF
 
 # ─────────────────────────────────────────────────────────────────

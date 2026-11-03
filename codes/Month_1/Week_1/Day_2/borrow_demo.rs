@@ -1,35 +1,26 @@
-// borrow_demo.rs — M1W1D2. Borrowing, references, and what the borrow checker allows.
+// borrow_demo.rs — M1W1D2. Borrowing: who may look at a value, and when.
 //
-//   rustc borrow_demo.rs -o /tmp/borrow_demo && /tmp/borrow_demo
+//   rustc borrow_demo.rs -o borrow
+//   ./borrow 3      run only section 3 — predict it first, then look
+//   ./borrow        run every section
 //
-// This file contains only code that COMPILES. It shows the legal shapes, so you
-// can see what borrowing buys you. The illegal shapes live in borrow_errors.rs,
-// and reading those error messages is the other half of today.
-//
-// Predict each section's output before you run it, same as yesterday.
-
-use std::fmt;
+// Everything in this file COMPILES — these are the shapes the borrow checker
+// allows. The shapes it rejects live in borrow_errors.rs.
 
 fn banner(n: u32, title: &str) {
     println!("\n──── {}. {} ────", n, title);
 }
 
 // ─────────────────────────────────────────────────────────────────
-// 1. The problem borrowing solves.
-//
-// Yesterday: passing a value MOVES it. So a function that only wants to read
-// something would take it away from you forever. That is absurd, and borrowing
-// is the fix.
+// 1. Why borrowing exists: passing by value MOVES, and the caller loses it.
 
 fn length_by_value(s: String) -> usize {
     s.len()
-    // s is dropped here - the caller's String is GONE
-}
+} // s is dropped here — the caller's String is gone
 
 fn length_by_reference(s: &String) -> usize {
     s.len()
-    // s is only a borrow. Nothing is dropped. The caller still owns the String.
-}
+} // s is only a borrow — nothing is dropped, the caller still owns the String
 
 fn s1_why_borrowing() {
     banner(1, "Why borrowing exists");
@@ -37,7 +28,6 @@ fn s1_why_borrowing() {
     let a = String::from("moved away");
     let n = length_by_value(a);
     println!("by value:     len {} — but 'a' is now unusable", n);
-    // println!("{}", a);   // error[E0382]: borrow of moved value
 
     let b = String::from("still mine");
     let n = length_by_reference(&b);
@@ -45,25 +35,23 @@ fn s1_why_borrowing() {
 }
 
 // ─────────────────────────────────────────────────────────────────
-// 2. Shared references: as many as you like, all read-only.
+// 2. Shared references (&T): as many readers as you like.
 fn s2_shared() {
     banner(2, "Shared references (&T): many readers, no writers");
 
     let data = String::from("hello");
-
     let r1 = &data;
     let r2 = &data;
     let r3 = &data;
 
     println!("three readers agree: {} / {} / {}", r1, r2, r3);
     println!("and the owner can still read it too: {}", data);
-
-    // All four names refer to the SAME bytes. No copying happened.
+    // {:p} prints the address a reference points at.
     println!("same address? {:p} {:p}", r1, r2);
 }
 
 // ─────────────────────────────────────────────────────────────────
-// 3. Exclusive references: exactly one, and it can write.
+// 3. Exclusive references (&mut T): exactly one, and it can change the value.
 fn push_suffix(s: &mut String) {
     s.push_str("-modified");
 }
@@ -73,36 +61,25 @@ fn s3_exclusive() {
 
     let mut data = String::from("original");
     println!("before: {}", data);
-
-    push_suffix(&mut data); // hand out the one exclusive borrow
-    println!("after:  {}", data); // borrow is over, owner can read again
-
-    // While a &mut exists you cannot make ANY other reference, not even a
-    // read-only one. That is the aliasing rule, and it is the whole point.
+    push_suffix(&mut data);
+    println!("after:  {}", data);
 }
 
 // ─────────────────────────────────────────────────────────────────
-// 4. Non-lexical lifetimes: a borrow ends at its LAST USE.
-//
-// This is why code that looks like it should be rejected compiles fine, and it
-// is the main reason the borrow checker feels inconsistent to beginners.
-fn s4_nll() {
-    banner(4, "Non-lexical lifetimes: borrows end at last use");
+// 4. A borrow ends at its LAST USE, not at the end of the block.
+fn s4_last_use() {
+    banner(4, "A borrow ends at its last use");
 
     let mut v = vec![1, 2, 3];
-
-    let first = &v[0]; // immutable borrow starts
-    println!("first element is {}", first); // ...and ENDS here, at its last use
-
-    v.push(4); // legal! the borrow above is already over
+    let first = &v[0];                      // the borrow starts here
+    println!("first element is {}", first); // ...and ends here, at its last use
+    v.push(4);                              // allowed: the borrow is already over
     println!("after push: {:?}", v);
-
-    // Swap the two lines above and it stops compiling, because then the borrow
-    // would still be live across the push. Try it.
+    // Swap the println! and the push above and this stops compiling. Try it.
 }
 
 // ─────────────────────────────────────────────────────────────────
-// 5. Slices: a pointer and a length, welded into one value.
+// 5. Slices: a pointer and a length, joined into one value.
 fn sum(xs: &[i32]) -> i32 {
     let mut total = 0;
     for x in xs {
@@ -115,48 +92,39 @@ fn s5_slices() {
     banner(5, "Slices: pointer and length that CANNOT disagree");
 
     let v = vec![10, 20, 30, 40, 50];
-
     println!("whole:      {:?}  sum {}", &v[..], sum(&v));
     println!("from 1:     {:?}  sum {}", &v[1..], sum(&v[1..]));
     println!("first two:  {:?}  sum {}", &v[..2], sum(&v[..2]));
     println!("middle:     {:?}  sum {}", &v[1..4], sum(&v[1..4]));
 
-    // A slice knows its own length. There is no way to pass a length that
-    // disagrees with the data, because they are the same value.
     let s = &v[1..4];
     println!("the slice itself reports len {}", s.len());
 
-    // An array works too - a slice does not care where the memory came from.
     let arr = [1, 2, 3];
     println!("from a plain array: sum {}", sum(&arr));
 }
 
 // ─────────────────────────────────────────────────────────────────
-// 6. Bounds are checked. Out of range is a panic, never silent corruption.
+// 6. Out of range: get() answers "nothing there" instead of crashing.
 fn s6_bounds() {
     banner(6, "Bounds checking");
 
     let v = vec![1, 2, 3];
-
-    // get() returns Option instead of panicking - the kernel-friendly way
     match v.get(10) {
         Some(x) => println!("v[10] = {}", x),
         None => println!("v.get(10) = None (no panic, no corruption)"),
     }
-
     println!("v.get(1)  = {:?}", v.get(1));
     println!("v.len()   = {}", v.len());
-
-    // v[10] would panic with "index out of bounds". In USERSPACE that kills the
-    // process. In the KERNEL a panic stops the machine - which is why kernel
-    // code prefers get() and handles the None.
+    // v[10] would panic. In the kernel a panic stops the machine, which is why
+    // kernel code prefers get() and handles the None.
 }
 
 // ─────────────────────────────────────────────────────────────────
-// 7. Mutable slices, and splitting one into two non-overlapping halves.
+// 7. Changing values through a mutable slice, and splitting one in two.
 fn double_all(xs: &mut [i32]) {
-    for x in xs.iter_mut() {
-        *x *= 2; // *x to write THROUGH the reference
+    for x in xs {
+        *x *= 2; // x is a reference to one number; *x is the number itself
     }
 }
 
@@ -167,9 +135,8 @@ fn s7_mutable_slices() {
     double_all(&mut v);
     println!("doubled: {:?}", v);
 
-    // Two &mut into the same Vec is forbidden. But two &mut into PROVABLY
-    // non-overlapping halves is fine - and this is how the standard library
-    // expresses that.
+    // Two &mut into the same Vec are forbidden — but two into halves that
+    // cannot overlap are fine, and split_at_mut gives you exactly that.
     let (left, right) = v.split_at_mut(2);
     left[0] = 100;
     right[0] = 200;
@@ -177,8 +144,15 @@ fn s7_mutable_slices() {
 }
 
 // ─────────────────────────────────────────────────────────────────
-// 8. A reference does not own, so dropping one frees nothing.
+// 8. A reference does not own, so when a borrow ends, nothing is dropped.
 struct Noisy(&'static str);
+
+impl Noisy {
+    fn new(name: &'static str) -> Self {
+        println!("      make: {}", name);
+        Noisy(name)
+    }
+}
 
 impl Drop for Noisy {
     fn drop(&mut self) {
@@ -189,7 +163,7 @@ impl Drop for Noisy {
 fn s8_references_dont_own() {
     banner(8, "References do not own: no drop when a borrow ends");
 
-    let owner = Noisy::new_named("the value");
+    let owner = Noisy::new("the value");
     {
         let borrowed = &owner;
         println!("      borrowed it: {}", borrowed.0);
@@ -199,51 +173,41 @@ fn s8_references_dont_own() {
     println!("      -- function ending, NOW expect the drop --");
 }
 
-impl Noisy {
-    fn new_named(name: &'static str) -> Self {
-        println!("      make: {}", name);
-        Noisy(name)
-    }
-}
-
 // ─────────────────────────────────────────────────────────────────
-// 9. Where Day 1 and Day 2 meet: the lock guard pattern.
+// 9. Where Day 1 meets Day 2: a lock guard.
 //
-// A lock hands you a guard. The guard gives EXCLUSIVE access to the data, and
-// the guard's Drop releases the lock. Ownership (Day 1) plus exclusivity
-// (Day 2) is exactly what makes kernel locking safe.
+// lock() hands out a guard holding the ONLY (exclusive) borrow of the counter,
+// and the guard's Drop releases the lock. So you cannot forget to unlock, and
+// you cannot touch the counter while the guard is alive.
 
-struct FakeLock<T> {
-    data: T,
+struct Counter {
+    value: i32,
 }
 
-struct FakeGuard<'a, T> {
-    lock: &'a mut FakeLock<T>,
+// <'a> gives the guard's borrow a name, so the compiler can check the guard
+// never outlives the counter. Lifetimes are Week 3: read it as "borrows a Counter".
+struct CounterGuard<'a> {
+    counter: &'a mut Counter,
 }
 
-impl<T> FakeLock<T> {
-    fn new(data: T) -> Self {
-        FakeLock { data }
-    }
-
-    // Returning a guard that borrows self EXCLUSIVELY means the compiler will
-    // not let anyone else touch the lock while the guard is alive.
-    fn lock(&mut self) -> FakeGuard<'_, T> {
+impl Counter {
+    fn lock(&mut self) -> CounterGuard<'_> {
         println!("      [lock acquired]");
-        FakeGuard { lock: self }
+        CounterGuard { counter: self }
     }
 }
 
-impl<T> FakeGuard<'_, T> {
-    fn get(&self) -> &T {
-        &self.lock.data
+impl CounterGuard<'_> {
+    fn get(&self) -> i32 {
+        self.counter.value
     }
-    fn set(&mut self, v: T) {
-        self.lock.data = v;
+
+    fn set(&mut self, v: i32) {
+        self.counter.value = v;
     }
 }
 
-impl<T> Drop for FakeGuard<'_, T> {
+impl Drop for CounterGuard<'_> {
     fn drop(&mut self) {
         println!("      [lock released]");
     }
@@ -252,42 +216,39 @@ impl<T> Drop for FakeGuard<'_, T> {
 fn s9_lock_guard() {
     banner(9, "Lock guards: ownership + exclusivity = safe locking");
 
-    let mut lock = FakeLock::new(41);
-
+    let mut counter = Counter { value: 41 };
     {
-        let mut guard = lock.lock();
+        let mut guard = counter.lock();
         println!("      read through guard: {}", guard.get());
         guard.set(42);
+        // println!("{}", counter.value);   // error: the guard has the only borrow
         println!("      wrote through guard: {}", guard.get());
         println!("      -- guard going out of scope --");
-    } // guard drops here, releasing the lock
-
-    println!("      after the block, value is {}", lock.lock().get());
-
-    // You CANNOT forget to unlock, because unlocking is the guard's destructor.
-    // You CANNOT use the data without the guard, because the data is behind it.
-    // That is Day 1 and Day 2 combined, and it is how kernel Mutex works.
+    }
+    println!("      after the block, counter.value is {}", counter.value);
 }
 
-// Bonus: Display for Noisy so {} works on it
-impl fmt::Display for Noisy {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}", self.0)
+// `./borrow 3` runs only section 3; plain `./borrow` runs them all.
+// How this works (Option and match) is W1D4 material — ignore it for today.
+fn wanted(section: &str) -> bool {
+    match std::env::args().nth(1) {
+        Some(arg) => arg == section,
+        None => true,
     }
 }
 
 fn main() {
     println!("=== borrowing: who may look at it, and when ===");
 
-    s1_why_borrowing();
-    s2_shared();
-    s3_exclusive();
-    s4_nll();
-    s5_slices();
-    s6_bounds();
-    s7_mutable_slices();
-    s8_references_dont_own();
-    s9_lock_guard();
+    if wanted("1") { s1_why_borrowing(); }
+    if wanted("2") { s2_shared(); }
+    if wanted("3") { s3_exclusive(); }
+    if wanted("4") { s4_last_use(); }
+    if wanted("5") { s5_slices(); }
+    if wanted("6") { s6_bounds(); }
+    if wanted("7") { s7_mutable_slices(); }
+    if wanted("8") { s8_references_dont_own(); }
+    if wanted("9") { s9_lock_guard(); }
 
     println!("\n=== now go read borrow_errors.rs ===");
 }

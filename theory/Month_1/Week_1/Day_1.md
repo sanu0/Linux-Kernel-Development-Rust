@@ -934,8 +934,23 @@ it stick.
 Create a file called `my_drop_order.rs`. In it, write a struct called `Guard` that holds a name and
 prints `release <name>` when it is dropped. Then write a function `setup` that takes a `bool`: it
 creates a guard named `a`, returns early if the `bool` is true, and otherwise creates a guard named
-`b`. In `main`, create a guard named `outer`, then an inner block containing a guard named `inner`,
-then call `setup(true)`, then `setup(false)`, then print `end of main`.
+`b`. In `main`, create a guard named `outer`, then an inner block containing **only** a guard named
+`inner`. After that block has closed, call `setup(true)`, then `setup(false)`, then print
+`end of main`.
+
+```rust
+fn main() {
+    // 1. guard named "outer"
+
+    {
+        // 2. guard named "inner" — nothing else goes in this block
+    }
+
+    // 3. setup(true)
+    // 4. setup(false)
+    // 5. print "end of main"
+}
+```
 
 **Before you run it**, write your predicted output as a comment at the top of the file. Then:
 
