@@ -1783,11 +1783,11 @@ KernelRustBook expanded into the canonical resource: complete curriculum, CI-ver
 - [x] What is *not* in kernel Rust: no `std`, no unwinding, no infallible allocation
 - [x] **Code:** write a type whose `Drop` prints, and demonstrate drop order in nested scopes and on early return
 
-### Day 2 — Borrowing, References, and the Borrow Checker
-- [ ] Shared (`&T`) vs exclusive (`&mut T`) references; the aliasing rule
-- [ ] Non-lexical lifetimes; why the compiler accepts things that look wrong
-- [ ] Slices and how they avoid the C "pointer + length that disagree" bug class
-- [ ] **Code:** deliberately write five borrow-checker errors, read each message carefully, then fix each. Save them with notes — this is how you learn to read `rustc`
+### Day 2 — Borrowing, References, and the Borrow Checker ✅
+- [x] Shared (`&T`) vs exclusive (`&mut T`) references; the aliasing rule
+- [x] Non-lexical lifetimes; why the compiler accepts things that look wrong
+- [x] Slices and how they avoid the C "pointer + length that disagree" bug class
+- [x] **Code:** deliberately write five borrow-checker errors, read each message carefully, then fix each. Save them with notes — this is how you learn to read `rustc`
 
 ### Day 3 — Kernel Source Tree Deep Tour
 - [ ] Walk `drivers/` and identify what lives where; find three drivers for hardware you own

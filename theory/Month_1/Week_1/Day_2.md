@@ -1,4 +1,4 @@
-# M1W1D2 — Borrowing and the Borrow Checker
+# M1W1D2 — Borrowing and the Borrow Checker ✅ COMPLETED
 
 > **What you need to know already:** Rust up to structs, plus yesterday's ownership — one owner,
 > moves, and `drop`. Anything beyond that is explained in a **🆕 New Rust** box at the moment it first
