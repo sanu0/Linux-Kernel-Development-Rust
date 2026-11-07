@@ -208,6 +208,20 @@ So the three drivers your machine depends on most are:
 | Disk controller | `hv_storvsc` | `drivers/scsi/storvsc_drv.c` |
 | The VMBus itself | `hv_vmbus` | `drivers/hv/vmbus_drv.c` |
 
+**Two catches when you use this method on other machines.** First, module names in `/sys` and `lsmod`
+use underscores, but Makefiles often use hyphens — `snd_hda_intel` is built from `snd-hda-intel.o`. The
+kernel treats the two as the same, so put `[-_]` in their place when you search:
+`git grep -n -E 'snd[-_]hda[-_]intel\.o' -- '*Makefile'`. Second, some folders use a file called
+`Kbuild` instead of `Makefile` — the open-source NVIDIA driver, `nouveau`, has 61 of them and no
+`Makefile` at all — so search both: `-- '*Makefile' '*Kbuild'`.
+
+**On a native Linux machine** there is no `/sys/bus/vmbus` at all: real hardware sits on real buses,
+mostly PCI, plus USB and "platform" devices built into the chipset. `ls /sys/bus/` lists every bus,
+the `readlink` trick above works on any device, and `lspci -k` (from the `pciutils` package) prints
+every PCI device with a `Kernel driver in use:` line. A typical laptop would show drivers such as
+`iwlwifi` (Intel Wi-Fi, `drivers/net/wireless/intel/iwlwifi/`), `nvme` (the SSD,
+`drivers/nvme/host/`) and `i915` or `xe` (Intel graphics, `drivers/gpu/drm/`).
+
 > **▶ Try it.** Run the `readlink`, `ls` and `git grep` commands above. Then repeat the search for
 > `hv_storvsc` and `hv_vmbus`, and open one of the source files with `less` to see what a driver looks
 > like. Press `q` to leave `less`.
