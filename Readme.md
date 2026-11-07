@@ -1789,13 +1789,13 @@ KernelRustBook expanded into the canonical resource: complete curriculum, CI-ver
 - [x] Slices and how they avoid the C "pointer + length that disagree" bug class
 - [x] **Code:** deliberately write five borrow-checker errors, read each message carefully, then fix each. Save them with notes — this is how you learn to read `rustc`
 
-### Day 3 — Kernel Source Tree Deep Tour
-- [ ] Walk `drivers/` and identify what lives where; find three drivers for hardware you own
-- [ ] Read `MAINTAINERS` structure: `M:`, `R:`, `L:`, `S:`, `F:`, `T:` — and look up who maintains `rust/`
-- [ ] Locate the Rust code: `rust/kernel/`, `rust/bindings/`, `rust/helpers/`, `rust/macros/`, `samples/rust/`
-- [ ] Locate the in-tree Rust drivers: `drivers/net/phy/` (ASIX), `drivers/block/rnull.rs`, `drivers/android/` (Binder), `drivers/gpu/nova-core/`, `drivers/gpu/drm/nova/`
-- [ ] Learn to search the tree fast: `git grep -n`, `ripgrep`, `cscope`/`ctags` or `rust-analyzer` + clangd
-- [ ] **Code:** run RustScope's precursor — count Rust files and lines per directory with a one-liner, and save the numbers
+### Day 3 — Kernel Source Tree Deep Tour ✅
+- [x] Walk `drivers/` and identify what lives where; find three drivers for hardware you own
+- [x] Read `MAINTAINERS` structure: `M:`, `R:`, `L:`, `S:`, `F:`, `T:` — and look up who maintains `rust/`
+- [x] Locate the Rust code: `rust/kernel/`, `rust/bindings/`, `rust/helpers/`, `rust/macros/`, `samples/rust/`
+- [x] Locate the in-tree Rust drivers: `drivers/net/phy/` (ASIX), `drivers/block/rnull.rs`, `drivers/android/` (Binder), `drivers/gpu/nova-core/`, `drivers/gpu/drm/nova/`
+- [x] Learn to search the tree fast: `git grep -n`, `ripgrep`, `cscope`/`ctags` or `rust-analyzer` + clangd
+- [x] **Code:** run RustScope's precursor — count Rust files and lines per directory with a one-liner, and save the numbers
 
 ### Day 4 — Structs, Enums, and Pattern Matching
 - [ ] `struct` forms, `impl` blocks, associated functions vs methods

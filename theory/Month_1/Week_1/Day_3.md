@@ -1,4 +1,4 @@
-# M1W1D3 — The Kernel Source Tree
+# M1W1D3 — The Kernel Source Tree ✅ COMPLETED
 
 > **What you need to know already:** your kernel tree from Week 0 (at `$LINUX_TREE`), and Days 1–2.
 > Today is not about Rust syntax — it is about finding your way around 95,000 files. Every new tool is
